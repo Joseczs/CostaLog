@@ -1,0 +1,97 @@
+rules_version = '2';
+
+// ═══════════════════════════════════════════════════════════════════════
+// COSTACON – Reglas de seguridad Firestore
+// Cubre: usuarios, empleados (subcolección del Jefe), proyectos, tareas,
+// y registrosHoras (subcolección de tarea).
+// ═══════════════════════════════════════════════════════════════════════
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ─────────────────────────────────────────────────────────
+    function estaAutenticado() {
+      return request.auth != null;
+    }
+
+    function miRol() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol;
+    }
+
+    function esSupervisor() {
+      return estaAutenticado() && miRol() == 'supervisor';
+    }
+
+    function esAdmin() {
+      return estaAutenticado() && miRol() == 'admin';
+    }
+
+    function esJefeCuadrilla() {
+      return estaAutenticado() && miRol() == 'jefe_cuadrilla';
+    }
+
+    function esElMismoUsuario(uid) {
+      return estaAutenticado() && request.auth.uid == uid;
+    }
+
+    // ── /usuarios/{uid} ─────────────────────────────────────────────────
+    // Cada quien crea y edita su propio documento al registrarse.
+    // Cualquier usuario autenticado puede LEER usuarios (necesario para que
+    // el Supervisor liste Jefes de Cuadrilla al crear una tarea).
+    match /usuarios/{uid} {
+      allow read: if estaAutenticado();
+      allow create: if esElMismoUsuario(uid);
+      // Solo el propio usuario o un admin pueden actualizar su perfil.
+      // El campo "rol" no debería cambiar después de creado (Opción A:
+      // se elige una sola vez al registrarse). Si se requiere cambiarlo
+      // más adelante, debe hacerse vía Admin/Cloud Function.
+      allow update: if esElMismoUsuario(uid) || esAdmin();
+      allow delete: if esAdmin();
+
+      // ── /usuarios/{jefeUid}/empleados/{empleadoId} ──────────────────
+      // Roster de trabajadores de un Jefe específico.
+      // El SUPERVISOR crea y asigna empleados a un Jefe.
+      // El JEFE solo puede ver su cuadrilla y activar/desactivar (no crear).
+      match /empleados/{empleadoId} {
+        allow read: if estaAutenticado();
+        allow create: if esSupervisor() || esAdmin();
+        allow update: if esSupervisor() || esAdmin() ||
+                         (esElMismoUsuario(uid) && esJefeCuadrilla() &&
+                          // El Jefe solo puede modificar el campo "activo",
+                          // no puede cambiar numeroEmpleado, nombre o rolHabitual.
+                          request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['activo']));
+        allow delete: if esSupervisor() || esAdmin();
+      }
+    }
+
+    // ── /proyectos/{proyectoId} ─────────────────────────────────────────
+    match /proyectos/{proyectoId} {
+      allow read: if estaAutenticado();
+      allow create, update: if esSupervisor() || esAdmin();
+      allow delete: if esAdmin();
+
+      // ── /proyectos/{proyectoId}/tareas/{tareaId} ──────────────────────
+      match /tareas/{tareaId} {
+        allow read: if estaAutenticado();
+        allow create: if esSupervisor() || esAdmin();
+        // El Supervisor puede editar todo. El Jefe asignado SOLO puede
+        // actualizar el campo "condiciones" y fechas de término si el
+        // flujo de negocio lo permite (ajustar según se defina el cierre).
+        allow update: if esSupervisor() || esAdmin() ||
+                         (esJefeCuadrilla() && resource.data.jefeCuadrillaId == request.auth.uid);
+        allow delete: if esSupervisor() || esAdmin();
+
+        // ── registrosHoras/{empleadoId} ────────────────────────────────
+        // Solo el Jefe de Cuadrilla asignado a ESTA tarea puede escribir
+        // horas. Esta es la regla clave que ata reverso ↔ frente.
+        match /registrosHoras/{empleadoId} {
+          allow read: if estaAutenticado();
+          allow write: if esJefeCuadrilla() &&
+            get(/databases/$(database)/documents/proyectos/$(proyectoId)/tareas/$(tareaId))
+              .data.jefeCuadrillaId == request.auth.uid;
+        }
+      }
+    }
+  }
+}

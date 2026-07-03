@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi Cuadrilla – COSTACON</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+  <header class="app-header">
+    <h1>COSTACON – Mi Cuadrilla</h1>
+    <div class="user-info">
+      <span id="nombre-usuario"></span>
+      <a href="/jefe/mis-tareas.html" style="color:#fff;font-size:12px;">← Mis Tareas</a>
+      <button class="btn-logout" id="btn-logout">Salir</button>
+    </div>
+  </header>
+
+  <div class="app-container">
+
+    <div class="card">
+      <p style="font-size:13px; color:#666; margin-bottom:12px;">
+        Esta es tu cuadrilla asignada por el Supervisor. Puedes marcar quién está
+        activo o inactivo según se presente a trabajar, pero solo el Supervisor
+        puede agregar nuevos empleados.
+      </p>
+      <table id="tabla-empleados">
+        <thead>
+          <tr>
+            <th># Empleado</th><th>Nombre</th><th>Rol</th><th>Estado</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody-empleados"></tbody>
+      </table>
+      <div id="empty-state" class="empty-state" style="display:none;">
+        Aún no tienes empleados asignados. Pídele al Supervisor que los agregue.
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="/jefe/mi-cuadrilla-controller.js"></script>
+</body>
+</html>

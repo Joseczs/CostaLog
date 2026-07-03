@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro de Horas – COSTACON</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+  <header class="app-header">
+    <h1>COSTACON – Registro de Horas</h1>
+    <div class="user-info">
+      <span id="nombre-usuario"></span>
+      <a href="/jefe/mis-tareas.html" style="color:#fff;font-size:12px;">← Mis Tareas</a>
+      <button class="btn-logout" id="btn-logout">Salir</button>
+    </div>
+  </header>
+
+  <div class="app-container">
+
+    <div class="card" id="card-info-tarea">
+      <h2 id="titulo-tarea">Cargando tarea...</h2>
+      <p id="subtitulo-tarea" style="color:#666; font-size:13px;"></p>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h2 style="margin:0;">Horas por empleado y día</h2>
+        <button class="btn-secundario" id="btn-agregar-empleado">+ Agregar empleado de mi cuadrilla</button>
+      </div>
+
+      <!-- Selector de empleados de la cuadrilla (checklist), oculto por defecto -->
+      <div id="panel-seleccionar-empleado" style="display:none; margin-bottom:16px; border:1px solid #eee; border-radius:6px; padding:12px;">
+        <p style="font-size:12px; color:#666; margin-bottom:8px;">
+          Selecciona el empleado de tu cuadrilla que se incorpora a esta tarea:
+        </p>
+        <div id="lista-cuadrilla-disponible"></div>
+      </div>
+
+      <div class="horas-grid-wrapper">
+        <table class="horas-grid" id="tabla-horas">
+          <thead id="thead-horas"></thead>
+          <tbody id="tbody-horas"></tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:10px;">
+        <button class="btn-accion" id="btn-guardar-horas">Guardar horas</button>
+      </div>
+      <p class="error-msg" id="horas-error"></p>
+    </div>
+
+  </div>
+
+  <script type="module" src="/jefe/horas-controller.js"></script>
+</body>
+</html>
