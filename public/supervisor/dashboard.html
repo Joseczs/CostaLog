@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard – COSTACON</title>
+<link rel="stylesheet" href="/css/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script></head>
+<body>
+
+  <header class="app-header">
+    <h1>COSTACON – Panel de Supervisor</h1>
+    <div class="user-info">
+      <span id="nombre-usuario"></span>
+      <button class="btn-accion" id="btn-exportar" style="background:var(--naranja); color:#1a1a1a;">
+        📊 Exportar Excel
+      </button>
+      <button class="btn-logout" id="btn-logout">Salir</button>
+    </div>
+  </header>
+
+  <div class="app-container">
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2 style="margin:0;">Proyectos</h2>
+        <button class="btn-accion" id="btn-nuevo-proyecto">+ Nuevo Proyecto</button>
+      </div>
+      <table style="margin-top:12px;">
+        <thead><tr><th>Código</th><th>Nombre</th><th>Ubicación</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="tbody-proyectos"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2 style="margin:0;">Tareas recientes (todos los proyectos)</h2>
+        <a href="/supervisor/nueva-tarea.html" class="btn-accion" style="text-decoration:none;">+ Nueva Tarea</a>
+      </div>
+      <table style="margin-top:12px;">
+        <thead>
+          <tr><th>Proyecto</th><th>Actividad</th><th>Jefe Cuadrilla</th><th>HH Est.</th><th>Estado</th><th></th></tr>
+        </thead>
+        <tbody id="tbody-tareas"></tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- Modal simple para nuevo proyecto -->
+  <div id="modal-proyecto" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); align-items:center; justify-content:center;">
+    <div class="card" style="width:380px;">
+      <h2>Nuevo Proyecto</h2>
+      <form id="form-proyecto" style="display:flex; flex-direction:column; gap:4px;">
+        <label>Código</label>
+        <input type="text" id="proy-codigo" required>
+        <label>Nombre</label>
+        <input type="text" id="proy-nombre" required>
+        <label>Ubicación</label>
+        <input type="text" id="proy-ubicacion">
+        <div style="display:flex; gap:8px; margin-top:16px;">
+          <button type="submit" class="btn-accion" style="flex:1;">Crear</button>
+          <button type="button" class="btn-secundario" id="btn-cancelar-proyecto" style="flex:1;">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="/js/exportarExcel.js"></script>
+  <script type="module" src="/supervisor/dashboard-controller.js"></script>
+</body>
+</html>

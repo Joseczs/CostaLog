@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Detalle de Tarea – COSTACON</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+  <header class="app-header">
+    <h1>COSTACON – Detalle de Tarea</h1>
+    <div class="user-info">
+      <span id="nombre-usuario"></span>
+      <a href="/supervisor/dashboard.html" style="color:#fff;font-size:12px;">← Dashboard</a>
+      <button class="btn-logout" id="btn-logout">Salir</button>
+    </div>
+  </header>
+
+  <div class="app-container">
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <h2 id="titulo-tarea" style="margin-bottom:4px;">Cargando...</h2>
+          <p id="subtitulo-tarea" style="color:#666; font-size:13px;"></p>
+        </div>
+        <span class="badge" id="badge-estado"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Resumen de horas</h2>
+      <div class="form-grid">
+        <div>
+          <label>HH Estimadas</label>
+          <p id="dato-hh-estimadas" style="font-size:20px; font-weight:700; color:var(--azul-oscuro);">—</p>
+        </div>
+        <div>
+          <label>HH Reales (registradas)</label>
+          <p id="dato-hh-reales" style="font-size:20px; font-weight:700; color:var(--azul-oscuro);">—</p>
+        </div>
+        <div>
+          <label>HH Economizadas</label>
+          <p id="dato-hh-economizadas" style="font-size:20px; font-weight:700; color:#2E7D32;">—</p>
+        </div>
+        <div>
+          <label>Bono Total Calculado</label>
+          <p id="dato-bono-total" style="font-size:20px; font-weight:700; color:var(--naranja);">—</p>
+        </div>
+      </div>
+      <p id="motivo-no-pago" style="color:var(--rojo-error); font-size:13px; margin-top:8px;"></p>
+    </div>
+
+    <div class="card">
+      <h2>Distribución por empleado</h2>
+      <table>
+        <thead><tr><th>Empleado</th><th>Rol</th><th>HH Trabajadas</th><th>Bono Asignado</th></tr></thead>
+        <tbody id="tbody-distribucion"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Condiciones para cobrar el bono</h2>
+      <div class="form-grid">
+        <label class="checklist-item" style="grid-column:span 1;">
+          <input type="checkbox" id="cond-actividad-terminada"> Actividad terminada
+        </label>
+        <label class="checklist-item">
+          <input type="checkbox" id="cond-sin-retrabajos"> Sin retrabajos
+        </label>
+        <label class="checklist-item">
+          <input type="checkbox" id="cond-calidad-aprobada"> Calidad aprobada
+        </label>
+        <label class="checklist-item">
+          <input type="checkbox" id="cond-seguridad-ocup"> Seguridad OCUP cumplida
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Término de actividad</h2>
+      <div class="form-grid">
+        <div>
+          <label>Fecha de término</label>
+          <input type="date" id="fecha-termino">
+        </div>
+        <div>
+          <label>Hora de término</label>
+          <input type="time" id="hora-termino">
+        </div>
+      </div>
+      <div style="margin-top:16px; display:flex; gap:10px;">
+        <button class="btn-accion" id="btn-guardar-condiciones">Guardar condiciones</button>
+        <button class="btn-accion" id="btn-cerrar-tarea" style="background:var(--naranja); color:#1a1a1a;">
+          Cerrar Tarea (marcar como Terminada)
+        </button>
+      </div>
+      <p class="error-msg" id="cierre-error"></p>
+    </div>
+
+  </div>
+
+  <script type="module" src="/supervisor/tarea-detalle-controller.js"></script>
+</body>
+</html>

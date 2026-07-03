@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COSTACON – Ingreso</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body class="auth-body">
+
+  <div class="auth-card">
+    <div class="auth-header">
+      <h1>COSTACON</h1>
+      <p>Sistema de Tickets de Bono</p>
+    </div>
+
+    <!-- ── TABS: Iniciar Sesión / Registrarse ── -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="login">Iniciar Sesión</button>
+      <button class="tab-btn" data-tab="signup">Registrarse</button>
+    </div>
+
+    <!-- ── TOGGLE: Correo / Teléfono (aplica a ambos tabs) ── -->
+    <div class="metodo-toggle">
+      <button class="metodo-btn active" data-metodo="email">✉️ Correo</button>
+      <button class="metodo-btn" data-metodo="telefono">📱 Teléfono</button>
+    </div>
+
+    <!-- ══════════════ LOGIN ══════════════ -->
+    <div id="panel-login" class="tab-panel active">
+
+      <!-- Login por correo -->
+      <form id="form-login-email" class="metodo-form">
+        <label>Correo electrónico</label>
+        <input type="email" id="login-email" required placeholder="correo@costacon.com">
+        <label>Contraseña</label>
+        <input type="password" id="login-password" required placeholder="••••••••">
+        <button type="submit" class="btn-primary">Ingresar</button>
+      </form>
+
+      <!-- Login por teléfono -->
+      <form id="form-login-telefono" class="metodo-form" style="display:none;">
+        <div id="login-telefono-paso1">
+          <label>Número de teléfono</label>
+          <input type="tel" id="login-telefono" placeholder="+506 8888 7777">
+          <p class="hint-text">Incluye el código de país (ej: +506 para Costa Rica)</p>
+          <button type="button" class="btn-primary" id="btn-enviar-codigo-login">Enviar código</button>
+        </div>
+        <div id="login-telefono-paso2" style="display:none;">
+          <label>Código de verificación</label>
+          <input type="text" id="login-codigo" placeholder="123456" inputmode="numeric">
+          <button type="button" class="btn-primary" id="btn-verificar-codigo-login">Verificar e ingresar</button>
+        </div>
+      </form>
+
+      <p class="error-msg" id="login-error"></p>
+    </div>
+
+    <!-- ══════════════ SIGNUP ══════════════ -->
+    <div id="panel-signup" class="tab-panel">
+
+      <!-- Campos comunes a ambos métodos -->
+      <label>Nombre completo</label>
+      <input type="text" id="signup-nombre" required placeholder="Tu nombre">
+
+      <label>¿Cuál es tu rol?</label>
+      <div class="rol-selector">
+        <button type="button" class="rol-btn" data-rol="supervisor">
+          <span class="rol-icon">📋</span><span>Supervisor</span>
+        </button>
+        <button type="button" class="rol-btn" data-rol="jefe_cuadrilla">
+          <span class="rol-icon">👷</span><span>Jefe de Cuadrilla</span>
+        </button>
+      </div>
+      <input type="hidden" id="signup-rol" required>
+
+      <div id="campo-numero-jefe" style="display:none;">
+        <label>Número de Jefe</label>
+        <input type="text" id="signup-numero-jefe" placeholder="Ej: 12">
+      </div>
+
+      <!-- Registro por correo -->
+      <form id="form-signup-email" class="metodo-form">
+        <label>Correo electrónico</label>
+        <input type="email" id="signup-email" placeholder="correo@costacon.com">
+        <label>Contraseña</label>
+        <input type="password" id="signup-password" minlength="6" placeholder="Mínimo 6 caracteres">
+        <button type="submit" class="btn-primary">Crear cuenta</button>
+      </form>
+
+      <!-- Registro por teléfono -->
+      <form id="form-signup-telefono" class="metodo-form" style="display:none;">
+        <div id="signup-telefono-paso1">
+          <label>Número de teléfono</label>
+          <input type="tel" id="signup-telefono" placeholder="+506 8888 7777">
+          <p class="hint-text">Incluye el código de país (ej: +506 para Costa Rica)</p>
+          <button type="button" class="btn-primary" id="btn-enviar-codigo-signup">Enviar código</button>
+        </div>
+        <div id="signup-telefono-paso2" style="display:none;">
+          <label>Código de verificación</label>
+          <input type="text" id="signup-codigo" placeholder="123456" inputmode="numeric">
+          <button type="button" class="btn-primary" id="btn-verificar-codigo-signup">Verificar y crear cuenta</button>
+        </div>
+      </form>
+
+      <p class="error-msg" id="signup-error"></p>
+    </div>
+
+  </div>
+
+  <!-- Contenedor invisible requerido por Firebase para el reCAPTCHA -->
+  <div id="recaptcha-container"></div>
+
+  <script type="module" src="/js/login-controller.js"></script>
+</body>
+</html>

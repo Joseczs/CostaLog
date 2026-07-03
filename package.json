@@ -1,0 +1,12 @@
+{
+  "name": "costacon-tickets-bono",
+  "version": "1.0.0",
+  "description": "App de digitalización de Tickets de Bono COSTACON",
+  "scripts": {
+    "dev": "npx serve public",
+    "deploy": "netlify deploy --prod --dir=public"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.0.0"
+  }
+}
