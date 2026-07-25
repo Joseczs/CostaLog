@@ -1,8 +1,13 @@
 // ═══════════════════════════════════════════════════════════════════════
 // auth.js — Registro con selección de rol (Opción A: el usuario elige
 // su rol libremente al registrarse) + login + ruteo por rol.
+//
+// ⚠️ La Opción A quedó marcada como deuda en el bloque 2: las reglas no
+// validan el campo `rol` al crear /usuarios/{uid}, así que la elección
+// libre del registro no está respaldada por seguridad. Ver CONTRATOS.md.
 // ═══════════════════════════════════════════════════════════════════════
 
+import { ROL_SUPERVISOR, HOME_POR_ROL, esRolValido } from './roles.js';
 import {
   auth, db,
   onAuthStateChanged, signInWithEmailAndPassword,
@@ -37,7 +42,7 @@ export async function iniciarSesion(email, password) {
 async function crearDocumentoUsuario(uid, { nombre, email, telefono, rol }) {
   const datosUsuario = {
     nombre,             // ⚠️ ÚNICO identificador visible del usuario en toda la app.
-    rol,                // 'supervisor' | 'jefe_cuadrilla'
+    rol,                // ROL_INGENIERO | ROL_SUPERVISOR  (ver roles.js)
     activo: true,
     createdAt: serverTimestamp()
   };
@@ -125,15 +130,15 @@ export function protegerPagina(rolesPermitidos, callback) {
       return;
     }
     if (!rolesPermitidos.includes(perfil.rol)) {
-      window.location.href = perfil.rol === 'supervisor'
-        ? '/supervisor/dashboard.html'
-        : '/jefe/mis-tareas.html';
+      window.location.href = rutaHomePorRol(perfil.rol);
       return;
     }
     callback(perfil);
   });
 }
 
+/** Un rol desconocido (documento viejo sin migrar, o escrito a mano) cae
+ *  al rol de campo, que es el de menos permisos. Nunca al de más. */
 export function rutaHomePorRol(rol) {
-  return rol === 'supervisor' ? '/supervisor/dashboard.html' : '/jefe/mis-tareas.html';
+  return HOME_POR_ROL[esRolValido(rol) ? rol : ROL_SUPERVISOR];
 }

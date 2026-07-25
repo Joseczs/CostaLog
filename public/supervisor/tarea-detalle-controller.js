@@ -1,3 +1,4 @@
+import { ROL_INGENIERO } from '../js/roles.js';
 import { protegerPagina, cerrarSesion } from '../js/auth.js';
 import { renderSidebar } from '../js/sidebar.js';
 import {
@@ -17,7 +18,7 @@ if (!proyectoId || !tareaId) {
 let tareaRef = null;
 let tarea = null;
 
-protegerPagina(['supervisor', 'admin'], (perfil) => {
+protegerPagina([ROL_INGENIERO], (perfil) => {
   renderSidebar(perfil);
   document.getElementById('nombre-usuario').textContent = perfil.nombre;
   cargarTarea();
