@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi Equipo – COSTACON</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+  <header class="app-header">
+    <h1>COSTACON – Mi Equipo</h1>
+    <div class="user-info">
+      <span id="nombre-usuario"></span>
+      <button class="btn-logout" id="btn-logout">Salir</button>
+    </div>
+  </header>
+
+  <div class="app-container">
+
+    <div class="card">
+      <p style="font-size:13px; color:#666; margin-bottom:12px;">
+        Este es tu equipo asignado por el Supervisor. Marca quién está
+        <strong>disponible</strong> según se presente a trabajar cada día.
+        Solo el Supervisor puede agregar o quitar colaboradores del equipo.
+      </p>
+      <table id="tabla-empleados">
+        <thead>
+          <tr>
+            <th># Empleado</th><th>Nombre</th><th>Rol</th><th>Disponibilidad</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody-empleados"></tbody>
+      </table>
+      <div id="empty-state" class="empty-state" style="display:none;">
+        Aún no tienes colaboradores asignados. Pídele al Supervisor que los agregue.
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="/jefe/mi-cuadrilla-controller.js"></script>
+</body>
+</html>
