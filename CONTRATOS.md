@@ -16,7 +16,7 @@ desactualizado es peor que no tenerlo.
 | 0 | Reglas + motor de cálculo | ✅ hecho | 99/99 tests |
 | 1 | Capa de datos (repositorios) | ✅ hecho | 50/50 tests + harness |
 | 2 | Roles + reglas Firestore | ✅ hecho | matriz + login manual 2 roles |
-| 3 | Configuración del proyecto | ⬜ | — |
+| 3 | Configuración del proyecto | ✅ hecho | 15/15 tests + checklist visual |
 | 4 | Metas e hitos | ⬜ | — |
 | 5 | Resumen y proyección de bono | ⬜ | — |
 | 6 | Extras, créditos y evaluaciones | ⬜ | — |
@@ -412,3 +412,162 @@ limpieza anterior en `master` y que solo sobrevivía en `main`. Se restauró con
 - **No volver a subir archivos por la interfaz web de GitHub.** Los 30 commits de
   `main` eran "Add files via upload" / "Delete public directory", y esa mecánica
   fue el origen de la historia paralela.
+
+---
+
+## Bloque 3 — configuración del proyecto ✅
+
+Dos archivos, ambos nuevos, ninguno de otro bloque tocado:
+`public/supervisor/config-proyecto.html` · `public/supervisor/config-proyecto-controller.js`
+
+Pantalla de `reglasBono` por proyecto. Solo rol `ingeniero`
+(`protegerPagina([ROL_INGENIERO], …)`). Es la que evita que alguien vuelva a
+tratar los ₡640 como una constante caída del cielo.
+
+### El controlador está partido en dos mitades
+
+**Arriba, funciones puras** — sin DOM, sin Firestore, sin red. Se importan desde
+Node para la prueba de aceptación:
+
+```js
+CAMPOS_NUMERICOS            // 10 strings congelados, en orden de pintado
+formatearColones(n)         // 640 → "₡640" · 15000 → "₡15 000" · NaN → "—"
+formatearNumero(n)          // igual, sin el símbolo
+reglasDesdeValores(valores) // {campo: string} → objeto de reglas completo
+textoTarifas(reglas)        // → { hora, dia, horaValida, diaValida,
+                            //     formulaHora, formulaDia }  ya formateado
+prepararGuardado(valores)   // → { ok, errores, reglas }  puerta única al guardado
+```
+
+**Abajo, el arranque del navegador**, dentro de
+`if (typeof document !== 'undefined' && document.getElementById('form-reglas'))`.
+Firebase se importa **de forma diferida** (`await import`) dentro de esa mitad.
+Con imports estáticos, importar el archivo en Node intentaría bajar el SDK del
+CDN y no habría prueba ejecutable. Es el precio de mantener el bloque en dos
+archivos, y está pagado a propósito.
+
+### Invariantes que no se rompen
+
+- **El controlador no valida por su cuenta.** Toda la regla de negocio es
+  `validarReglasBono()` del bloque 0. `prepararGuardado()` arma el objeto y
+  pregunta; no tiene un solo `if` de negocio propio.
+- **Un campo vacío entra como `NaN`, nunca como `0`.** Silenciarlo con `|| 0`
+  guardaría un cero que nadie escribió, y un cero acá es dinero. El validador lo
+  rechaza con el nombre del campo.
+- **Nada se escribe al abrir.** Un proyecto sin el mapa `reglasBono` —hoy son
+  todos— pinta `normalizarReglas({})` y muestra el aviso *"nunca ha guardado sus
+  reglas"*. La escritura ocurre solo con el botón Guardar.
+- **El mapa va completo a `actualizarReglas()`**, con sus 12 campos, normalizado.
+  Nunca campo por campo: el contrato del repo lo exige y a medias quedan mapas
+  rotos.
+- **Las dos tarifas son solo lectura.** No hay input que las escriba, y no se
+  guardan en Firestore: se derivan en cada tecla. Cada una muestra su fórmula
+  debajo (`3 600 × 20 % = ₡720`), que es el punto entero de la pantalla.
+- **Los dos booleanos de política no se editan.** `permitirBonoNegativo` (D-01) y
+  `permitirDiasAtrasoNegativos` (D-06) son decisiones de empresa, no de proyecto;
+  la sección 5.3 de la especificación dice explícitamente que el segundo no se
+  expone. Se muestran como texto en la tarjeta "Políticas cerradas" y salen de
+  `REGLAS_BONO_DEFAULT` al guardar.
+
+### Navegación
+
+`config-proyecto.html?proyecto=<id>` preselecciona; sin el parámetro, el propio
+selector lista `proyectosRepo.listar()`. Al elegir, la URL se actualiza con
+`history.replaceState` para que el enlace se pueda compartir. Un id que no esté
+en la lista se ignora en silencio.
+
+**La pantalla no tiene entrada de menú.** Agregarla exige tocar `js/sidebar.js`,
+que es del bloque 2. Se llega por URL hasta el bloque 4. Ver deuda 6.
+
+### Guardado explícito, no autoguardado — y por qué
+
+Las tarifas se recalculan en memoria en cada tecla (3.65 µs, medido en el bloque
+0); a Firestore se escribe solo al pulsar Guardar. Es deliberado: `reglasBono`
+mueve todos los montos del proyecto a la vez, y un autoguardado con debounce
+persistiría estados intermedios de un número a medio digitar — `320` en el
+camino de `3200` a `3600` es un mapa válido que el validador acepta.
+
+Si algún día se quisiera autoguardar, el punto de cambio es uno solo: el
+`submit` del formulario llama `prepararGuardado()` y luego
+`actualizarReglas()`. Mover esas dos líneas al `input` con debounce es todo el
+cambio; nada más depende de que el guardado sea manual.
+
+### Deuda declarada — no es olvido
+
+5. **`formato.js` no existe todavía.** El plan lo pide "desde el bloque 3", pero
+   sería un tercer archivo y el bloque son dos. `formatearColones` y
+   `formatearNumero` viven por ahora dentro del controlador, marcados en el
+   código. **Se mudan en el bloque 4**, antes de que aparezca la segunda
+   pantalla que escribe ₡498 480 — que es exactamente cuando empiezan a
+   divergir.
+6. **Sin entrada de menú.** El ítem entra a `sidebar.js` cuando el bloque 4 abra
+   la lista de metas y haya que tocar ese archivo de todos modos.
+7. **`supervisorIds` sigue pendiente** (deuda 2 del bloque 2). El plan lo marcaba
+   como candidato natural de este bloque, y se dejó fuera a propósito: no es
+   parte de `reglasBono` y atar un proyecto a sus supervisores exige cambiar
+   `firestore.rules`, que es del bloque 2. Necesita bloque propio, con su deploy
+   de reglas. **Mientras siga abierta, el supervisor ve todos los proyectos.**
+
+**Verificación:** `test/bloque3.mjs`, 15 casos en Node sin red (15/15). Cubre los
+dos criterios del plan —₡3 600 ⇒ ₡720 sin recargar, y 100 + 20 = 120 rechazado—
+más las guardas del formulario. Fuera del deploy, igual que `test/pruebas.mjs`.
+
+---
+
+## Fixture UNA UNIDEPRO — cargado en Firestore
+
+`scripts/cargar-fixture-unidepro.js` — andamio, fuera del deploy.
+
+```
+node scripts/cargar-fixture-unidepro.js              # simulación
+node scripts/cargar-fixture-unidepro.js --escribir   # aplica (idempotente)
+node scripts/cargar-fixture-unidepro.js --borrar --escribir
+```
+
+Escribe el caso de aceptación §5.6, que hasta ahora solo existía en memoria
+dentro de `public/js/core/fixtures/meta-unidepro-1.js`. Sin esto, la prueba del
+bloque 4b no tiene qué leer.
+
+```
+proyectos/fixture-unidepro          ← esFixture: true · reglasBono completo
+└── metas/meta-1                    ← estado 'evaluada', reglasSnapshot null
+    ├── hitos/h-000 … h-051         ← 47 de lista + 5 extras
+    └── evaluaciones/eval-000
+```
+
+**Ids fijos, nunca autogenerados.** Todo se escribe con `set(..., {merge:true})`
+sobre ids conocidos, así que correrlo dos veces deja el mismo estado. Verificado:
+la segunda pasada deja 52 hitos, no 104.
+
+**Antes de escribir, verifica.** El script corre `calcularBonoMeta()` con los
+datos ya transformados y aborta si no da 2 697.10 / 1 092.25 / ₡498 480. Si eso
+falla, el problema está en el fixture o en el motor — no en Firestore, y no en la
+pantalla.
+
+**Guarda contra colisión de id:** si `proyectos/fixture-unidepro` existe sin
+`esFixture: true`, aborta sin escribir. `--borrar` hace soft-delete, nunca
+`deleteDoc`.
+
+### Tres cosas que el script agrega y el fixture no trae
+
+1. **`codigo` en los 5 extras**, que vienen en blanco → `EXTRA.01` … `EXTRA.05`,
+   en orden de aparición. Es el único dato inventado.
+2. **`orden`** = posición en el arreglo, que es el orden del Excel.
+3. **`activo: true`** en los 52, más los campos de D-11 explícitos en `null`
+   (`avancePropuesto`, `propuestoPor/En`, `aprobadoPor/En`). El fixture trae el
+   avance ya **aprobado** en `avancePct`, sin propuesta pendiente.
+
+### Invariantes que no se rompen
+
+- **`codigo` NO es clave única.** `A.35` está **duplicado** en el fixture: dos
+  renglones distintos con el mismo código. Está así en el Excel y no se corrige
+  — los totales de aceptación dependen de estos datos exactos. Cualquier pantalla
+  que lea hitos usa el id del documento o `orden`, nunca `codigo`.
+- **El proyecto se llama `⚠ FIXTURE — UNA UNIDEPRO` y lleva `esFixture: true`.**
+  Convive con los proyectos reales en la misma base y en la misma lista. Que se
+  note a simple vista es deliberado; no se le quita el ⚠.
+- **Los 147 HH de misceláneos NO están en Firestore.** `MIC.01` es sintético: el
+  motor lo genera en memoria (§4-bis). Los 2 697.10 no salen de sumar los 52
+  documentos — salen de sumarlos *más* los misceláneos. Decisión abierta para el
+  bloque 4b: si la tabla de hitos pinta ese renglón calculado, y cómo se marca
+  para que nadie intente editarlo.
