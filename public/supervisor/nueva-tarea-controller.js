@@ -1,3 +1,4 @@
+import { ROL_INGENIERO, ROL_SUPERVISOR } from '../js/roles.js';
 import { protegerPagina, cerrarSesion } from '../js/auth.js';
 import { renderSidebar } from '../js/sidebar.js';
 import {
@@ -7,7 +8,7 @@ import {
 const params = new URLSearchParams(window.location.search);
 const proyectoPreseleccionado = params.get('proyecto');
 
-protegerPagina(['supervisor', 'admin'], (perfil) => {
+protegerPagina([ROL_INGENIERO], (perfil) => {
   renderSidebar(perfil);
   document.getElementById('nombre-usuario').textContent = perfil.nombre;
   cargarProyectos();
@@ -34,7 +35,7 @@ async function cargarProyectos() {
 }
 
 async function cargarJefesCuadrilla() {
-  const q = query(collection(db, 'usuarios'), where('rol', '==', 'jefe_cuadrilla'));
+  const q = query(collection(db, 'usuarios'), where('rol', '==', ROL_SUPERVISOR));
   const snap = await getDocs(q);
   const select = document.getElementById('tarea-jefe');
   snap.forEach(d => {

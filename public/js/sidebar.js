@@ -5,9 +5,14 @@
 // categoría, sin depender de tooltips.
 // ═══════════════════════════════════════════════════════════════════════
 
+import { ROL_INGENIERO, ROL_SUPERVISOR } from './roles.js';
+
 // Estructura de navegación por rol. Agrupada por categoría.
+// ⚠️ Los directorios /supervisor/ y /jefe/ conservan el nombre viejo:
+// /supervisor/* pertenece al INGENIERO, /jefe/* al SUPERVISOR (Maestro
+// de Obras). Deuda declarada en CONTRATOS.md.
 const NAV_POR_ROL = {
-  supervisor: [
+  [ROL_INGENIERO]: [
     {
       grupo: 'General',
       items: [
@@ -29,7 +34,7 @@ const NAV_POR_ROL = {
       ]
     }
   ],
-  jefe_cuadrilla: [
+  [ROL_SUPERVISOR]: [
     {
       grupo: 'General',
       items: [
@@ -39,9 +44,6 @@ const NAV_POR_ROL = {
     }
   ]
 };
-
-// admin ve lo mismo que el supervisor.
-NAV_POR_ROL.admin = NAV_POR_ROL.supervisor;
 
 function rutaDe(href) {
   // Devuelve solo el pathname (sin hash ni query) para comparar "página actual".
@@ -56,7 +58,8 @@ function rutaDe(href) {
 export function renderSidebar(perfil) {
   if (!perfil || document.querySelector('.sidebar')) return; // ya renderizado
 
-  const grupos = NAV_POR_ROL[perfil.rol] || NAV_POR_ROL.jefe_cuadrilla;
+  // Rol desconocido cae al menú de menos alcance, nunca al de más.
+  const grupos = NAV_POR_ROL[perfil.rol] || NAV_POR_ROL[ROL_SUPERVISOR];
   const rutaActual = window.location.pathname;
 
   const aside = document.createElement('aside');

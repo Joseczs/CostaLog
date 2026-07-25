@@ -1,3 +1,4 @@
+import { ROL_INGENIERO, ROL_SUPERVISOR } from '../js/roles.js';
 import { protegerPagina, cerrarSesion } from '../js/auth.js';
 import {
   db, collection, addDoc, onSnapshot, doc, updateDoc, serverTimestamp,
@@ -8,7 +9,7 @@ import { renderSidebar } from '../js/sidebar.js';
 let jefeSeleccionadoId = null;
 let unsubscribeEmpleados = null;
 
-protegerPagina(['supervisor', 'admin'], (perfil) => {
+protegerPagina([ROL_INGENIERO], (perfil) => {
   renderSidebar(perfil);
   document.getElementById('nombre-usuario').textContent = perfil.nombre;
   cargarJefes();
@@ -21,7 +22,7 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
 
 // ── Cargar lista de Jefes de Cuadrilla ─────────────────────────────────
 async function cargarJefes() {
-  const q = query(collection(db, 'usuarios'), where('rol', '==', 'jefe_cuadrilla'));
+  const q = query(collection(db, 'usuarios'), where('rol', '==', ROL_SUPERVISOR));
   const snap = await getDocs(q);
   const select = document.getElementById('selector-jefe');
   snap.forEach(d => {

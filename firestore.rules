@@ -1,96 +1,181 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════════════
-// COSTACON – Reglas de seguridad Firestore
-// Cubre: usuarios, empleados (subcolección del Jefe), proyectos, tareas,
-// y registrosHoras (subcolección de tarea).
+// COSTACON — Reglas de seguridad Firestore
+// Bloque 2 — Dos roles: 'ingeniero' y 'supervisor'.  (D-03, D-04)
+//
+//   ingeniero  ≡ Ingeniero Residente.  Define el alcance y las reglas:
+//               proyectos, reglasBono, metas, hitos, evaluaciones, pagos,
+//               creación de tareas BP y de empleados.  APRUEBA el avance.
+//
+//   supervisor ≡ Maestro de Obras ≡ Jefe de Cuadrilla.  Ejecuta en sitio:
+//               arma cuadrillas, reporta HH reales, alterna `disponible`
+//               de su roster, cierra la asistencia del día.  PROPONE el
+//               avance, no lo aprueba.
+//
+// Los roles 'jefe_cuadrilla' y 'admin' fueron eliminados (ver
+// scripts/migrar-roles.js).  Ningún valor fuera de los dos de arriba
+// concede permiso alguno.
+//
+// BORRADO DURO: prohibido en toda la base.  El histórico de bonos cuelga
+// del soft-delete (`activo: false`).  `deleteDoc` no se invoca en la app.
 // ═══════════════════════════════════════════════════════════════════════
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
     // ── Helpers ─────────────────────────────────────────────────────────
-    function estaAutenticado() {
+
+    function autenticado() {
       return request.auth != null;
     }
 
-    function miRol() {
-      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol;
+    function perfil() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+
+    // `activo` ausente cuenta como activo — misma invariante que los repos.
+    function habilitado() {
+      return autenticado() && perfil().activo != false;
+    }
+
+    function esIngeniero() {
+      return habilitado() && perfil().rol == 'ingeniero';
     }
 
     function esSupervisor() {
-      return estaAutenticado() && miRol() == 'supervisor';
+      return habilitado() && perfil().rol == 'supervisor';
     }
 
-    function esAdmin() {
-      return estaAutenticado() && miRol() == 'admin';
-    }
-
-    function esJefeCuadrilla() {
-      return estaAutenticado() && miRol() == 'jefe_cuadrilla';
+    // Cualquiera de los dos roles válidos. Un rol desconocido da false.
+    function esUsuario() {
+      return esIngeniero() || esSupervisor();
     }
 
     function esElMismoUsuario(uid) {
-      return estaAutenticado() && request.auth.uid == uid;
+      return autenticado() && request.auth.uid == uid;
+    }
+
+    // La escritura toca únicamente los campos listados y ninguno más.
+    function soloCambia(campos) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos);
     }
 
     // ── /usuarios/{uid} ─────────────────────────────────────────────────
-    // Cada quien crea y edita su propio documento al registrarse.
-    // Cualquier usuario autenticado puede LEER usuarios (necesario para que
-    // el Supervisor liste Jefes de Cuadrilla al crear una tarea).
+    // Lectura abierta a usuarios autenticados: el Ingeniero necesita
+    // listar supervisores para asignarles tareas.
+    //
+    // ⚠️ DEUDA DECLARADA (Hallazgo 2, diferida a otro bloque): `create` no
+    // valida el campo `rol`. Cualquier cuenta autenticada puede crearse a
+    // sí misma como 'ingeniero' desde la consola del navegador y quedar
+    // habilitada para aprobar su propio % de avance y cerrar metas.
+    // Mientras esto siga abierto, el contrapeso de D-11 es de interfaz,
+    // no de seguridad.
     match /usuarios/{uid} {
-      allow read: if estaAutenticado();
+      allow read:   if autenticado();
       allow create: if esElMismoUsuario(uid);
-      // Solo el propio usuario o un admin pueden actualizar su perfil.
-      // El campo "rol" no debería cambiar después de creado (Opción A:
-      // se elige una sola vez al registrarse). Si se requiere cambiarlo
-      // más adelante, debe hacerse vía Admin/Cloud Function.
-      allow update: if esElMismoUsuario(uid) || esAdmin();
-      allow delete: if esAdmin();
+      allow update: if esElMismoUsuario(uid) || esIngeniero();
+      allow delete: if false;
 
-      // ── /usuarios/{jefeUid}/empleados/{empleadoId} ──────────────────
-      // Roster de trabajadores de un Jefe específico.
-      // El SUPERVISOR crea, elimina (soft-delete vía "activo") y edita.
-      // El JEFE solo puede ver su equipo y marcar disponibilidad diaria
-      // ("disponible"). NO puede tocar "activo" (estado maestro del
-      // Supervisor) ni crear/renombrar colaboradores.
+      // ── /usuarios/{supervisorUid}/empleados/{empleadoId} ─────────────
+      // Roster de operarios y ayudantes de un supervisor. NO son usuarios
+      // del sistema: nunca se autentican, solo reciben su parte del BP.
+      //
+      // `activo`     — control maestro del Ingeniero (alta / soft-delete).
+      // `disponible` — asistencia del día, la marca el propio supervisor.
+      // Son campos distintos y los escriben roles distintos.
       match /empleados/{empleadoId} {
-        allow read: if estaAutenticado();
-        allow create: if esSupervisor() || esAdmin();
-        allow update: if esSupervisor() || esAdmin() ||
-                         (esElMismoUsuario(uid) && esJefeCuadrilla() &&
-                          request.resource.data.diff(resource.data).affectedKeys()
-                            .hasOnly(['disponible']));
-        allow delete: if esSupervisor() || esAdmin();
+        allow read:   if esUsuario();
+        allow create: if esIngeniero();
+        allow update: if esIngeniero() ||
+                         (esElMismoUsuario(uid) && esSupervisor() &&
+                          soloCambia(['disponible']));
+        allow delete: if false;
       }
     }
 
     // ── /proyectos/{proyectoId} ─────────────────────────────────────────
+    // Incluye el mapa `reglasBono`: editarlo es `update` sobre el proyecto,
+    // por lo tanto exclusivo del Ingeniero.
+    //
+    // ⚠️ DEUDA DECLARADA: la matriz §6 dice que el supervisor ve "solo los
+    // suyos". No se puede aplicar todavía — no existe el campo que ate un
+    // proyecto a sus supervisores. Requiere `supervisorIds: string[]` en el
+    // documento del proyecto. Hasta entonces la lectura es para ambos roles.
     match /proyectos/{proyectoId} {
-      allow read: if estaAutenticado();
-      allow create, update: if esSupervisor() || esAdmin();
-      allow delete: if esAdmin();
+      allow read:           if esUsuario();
+      allow create, update: if esIngeniero();
+      allow delete:         if false;
 
-      // ── /proyectos/{proyectoId}/tareas/{tareaId} ──────────────────────
-      match /tareas/{tareaId} {
-        allow read: if estaAutenticado();
-        allow create: if esSupervisor() || esAdmin();
-        // El Supervisor puede editar todo. El Jefe asignado SOLO puede
-        // actualizar el campo "condiciones" y fechas de término si el
-        // flujo de negocio lo permite (ajustar según se defina el cierre).
-        allow update: if esSupervisor() || esAdmin() ||
-                         (esJefeCuadrilla() && resource.data.jefeCuadrillaId == request.auth.uid);
-        allow delete: if esSupervisor() || esAdmin();
+      // ── metas ────────────────────────────────────────────────────────
+      // hhPlanilla, fechaEntrega, cierre y snapshot: todos del Ingeniero.
+      match /metas/{metaId} {
+        allow read:           if esUsuario();
+        allow create, update: if esIngeniero();
+        allow delete:         if false;
 
-        // ── registrosHoras/{empleadoId} ────────────────────────────────
-        // Solo el Jefe de Cuadrilla asignado a ESTA tarea puede escribir
-        // horas. Esta es la regla clave que ata reverso ↔ frente.
-        match /registrosHoras/{empleadoId} {
-          allow read: if estaAutenticado();
-          allow write: if esJefeCuadrilla() &&
-            get(/databases/$(database)/documents/proyectos/$(proyectoId)/tareas/$(tareaId))
-              .data.jefeCuadrillaId == request.auth.uid;
+        // ── hitos ──────────────────────────────────────────────────────
+        // D-11 aplicado en el servidor: el supervisor solo puede escribir
+        // la propuesta. `avancePct` — el valor que el motor usa para
+        // calcular dinero — es inaccesible para quien cobra el bonoMO.
+        match /hitos/{hitoId} {
+          allow read:   if esUsuario();
+          allow create: if esIngeniero();
+          allow update: if esIngeniero() ||
+                           (esSupervisor() &&
+                            soloCambia(['avancePropuesto', 'propuestoPor', 'propuestoEn']));
+          allow delete: if false;
         }
+
+        // ── evaluaciones (ornato / SO) ─────────────────────────────────
+        // El factor de calidad es el freno del sistema y lo califica quien
+        // no cobra el bono que ese factor reduce.
+        match /evaluaciones/{evaluacionId} {
+          allow read:           if esUsuario();
+          allow create, update: if esIngeniero();
+          allow delete:         if false;
+        }
+
+        // ── asistencias (D-12) ─────────────────────────────────────────
+        // Anticipado para el bloque 7b: sin consumidores todavía. Se deja
+        // escrito para no repetir el deploy de reglas más adelante.
+        // El supervisor cierra el día; el ingeniero puede corregirlo.
+        match /asistencias/{fecha} {
+          allow read:           if esUsuario();
+          allow create, update: if esIngeniero() || esSupervisor();
+          allow delete:         if false;
+        }
+      }
+
+      // ── tareas (Bono por Productividad) ────────────────────────────────
+      // El campo `jefeCuadrillaId` conserva su nombre a propósito:
+      // renombrarlo es una migración de datos que pertenece al bloque 7.
+      // Aquí guarda el uid del SUPERVISOR asignado.
+      match /tareas/{tareaId} {
+        allow read:   if esUsuario();
+        allow create: if esIngeniero();
+        allow update: if esIngeniero() ||
+                         (esSupervisor() && resource.data.jefeCuadrillaId == request.auth.uid);
+        allow delete: if false;
+
+        // ── registrosHoras/{empleadoId} ──────────────────────────────────
+        // Ata el reverso del ticket al frente: solo el supervisor asignado
+        // a ESTA tarea escribe sus horas.
+        match /registrosHoras/{empleadoId} {
+          allow read:  if esUsuario();
+          allow write: if esIngeniero() ||
+                          (esSupervisor() &&
+                           get(/databases/$(database)/documents/proyectos/$(proyectoId)/tareas/$(tareaId))
+                             .data.jefeCuadrillaId == request.auth.uid);
+        }
+      }
+
+      // ── pagos (bloque 8) ───────────────────────────────────────────────
+      // Anticipado, sin consumidores todavía.
+      match /pagos/{pagoId} {
+        allow read:           if esUsuario();
+        allow create, update: if esIngeniero();
+        allow delete:         if false;
       }
     }
   }
