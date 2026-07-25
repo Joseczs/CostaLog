@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Configuración del proyecto – COSTACON</title>
+<link rel="stylesheet" href="/css/styles.css">
+<style>
+  /* Estilos locales del bloque 3. No se toca css/styles.css (bloque ajeno).
+     Si estas piezas se repiten en otra pantalla, suben a styles.css entonces. */
+
+  .tarifas-panel {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+    background: #F4F8FB; border: 1px solid #D6E4EF; border-radius: 8px; padding: 16px;
+  }
+  .tarifa { border-left: 4px solid var(--azul-oscuro); padding-left: 12px; }
+  .tarifa-valor {
+    font-size: 26px; font-weight: 700; color: var(--azul-oscuro); line-height: 1.2;
+  }
+  .tarifa-valor.invalida { color: #999; }
+  .tarifa-nombre { font-size: 12px; font-weight: 600; color: var(--gris-texto); }
+  .tarifa-formula {
+    font-size: 11px; color: #777; margin-top: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .tarifa-solo-lectura {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .5px;
+    color: #8aa; margin-bottom: 2px;
+  }
+
+  .grupo-campos { margin-bottom: 18px; }
+  .grupo-titulo {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
+    color: #8794a1; font-weight: 700; border-bottom: 1px solid #eef2f5;
+    padding-bottom: 6px; margin-bottom: 10px;
+  }
+
+  .politicas { list-style: none; padding: 0; margin: 0; }
+  .politicas li {
+    font-size: 12px; color: var(--gris-texto);
+    padding: 7px 0; border-bottom: 1px dashed #eef2f5;
+  }
+  .politicas li:last-child { border-bottom: none; }
+  .politicas code { font-size: 11px; color: #556; }
+
+  .aviso-defaults {
+    background: #FFF8E6; border: 1px solid #F0DFA8; color: #8a5a00;
+    border-radius: 6px; padding: 10px 12px; font-size: 12px; margin-bottom: 14px;
+  }
+
+  .lista-errores {
+    margin: 0 0 12px 0; padding: 10px 12px 10px 28px;
+    background: #FDECEC; border: 1px solid #F5C2C2; border-radius: 6px;
+    color: var(--rojo-error); font-size: 12px;
+  }
+  .lista-errores li { margin: 2px 0; }
+
+  .barra-guardar {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 4px;
+  }
+  .estado-guardado { font-size: 12px; color: #2E7D32; }
+
+  @media (max-width: 700px) {
+    .tarifas-panel { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+  <header class="app-header">
+    <h1>COSTACON – Configuración del proyecto</h1>
+    <div class="user-info">
+      <span id="nombre-usuario"></span>
+      <button class="btn-logout" id="btn-logout">Salir</button>
+    </div>
+  </header>
+
+  <div class="app-container">
+
+    <!-- ── Selector de proyecto ───────────────────────────────────────── -->
+    <div class="card">
+      <h2>Proyecto</h2>
+      <p class="hint-text">
+        Cada proyecto guarda sus propias reglas. Las metas cerradas conservan la
+        copia congelada que tenían al cerrarse (D-10): cambiar esto no mueve
+        montos ya pagados.
+      </p>
+      <select id="selector-proyecto" style="width:100%; max-width:460px;">
+        <option value="">Selecciona un proyecto…</option>
+      </select>
+      <p class="error-msg" id="error-carga"></p>
+    </div>
+
+    <!-- ── Todo lo demás aparece solo con un proyecto seleccionado ────── -->
+    <div id="seccion-reglas" style="display:none;">
+
+      <div id="aviso-defaults" class="aviso-defaults" style="display:none;">
+        ⚠️ Este proyecto nunca ha guardado sus reglas: lo que ves son los valores
+        por defecto. Nada se escribe hasta que pulses <strong>Guardar reglas</strong>.
+      </div>
+
+      <!-- Tarifas derivadas. Se calculan en vivo, no se guardan. -->
+      <div class="card">
+        <h2>Tarifas derivadas</h2>
+        <p class="hint-text">
+          No se digitan ni se guardan: salen de los campos de abajo. Los ₡640 no
+          son una constante de empresa — son el resultado de estos dos números.
+        </p>
+        <div class="tarifas-panel">
+          <div class="tarifa">
+            <div class="tarifa-solo-lectura">Solo lectura</div>
+            <div class="tarifa-valor" id="tarifa-hora">—</div>
+            <div class="tarifa-nombre">por HH economizada</div>
+            <div class="tarifa-formula" id="formula-hora">—</div>
+          </div>
+          <div class="tarifa">
+            <div class="tarifa-solo-lectura">Solo lectura</div>
+            <div class="tarifa-valor" id="tarifa-dia">—</div>
+            <div class="tarifa-nombre">por día de entrega anticipada</div>
+            <div class="tarifa-formula" id="formula-dia">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Formulario de reglas -->
+      <div class="card">
+        <h2>Reglas del bono</h2>
+
+        <form id="form-reglas" autocomplete="off">
+
+          <div class="grupo-campos">
+            <div class="grupo-titulo">Costos base</div>
+            <div class="form-grid">
+              <div>
+                <label for="costoPromHH">Costo promedio HH (₡)</label>
+                <input type="number" id="costoPromHH" step="1" min="0">
+                <div class="hint-text">₡ que cuesta una hora-hombre en este proyecto.</div>
+              </div>
+              <div>
+                <label for="costoDiarioAdmin">Costo diario de administración (₡)</label>
+                <input type="number" id="costoDiarioAdmin" step="1" min="0">
+                <div class="hint-text">₡ por día de administración de obra.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grupo-campos">
+            <div class="grupo-titulo">Porcentajes del bono por meta</div>
+            <div class="form-grid">
+              <div>
+                <label for="pctBonoHoraProductividad">% del costo HH que se paga por hora economizada</label>
+                <input type="number" id="pctBonoHoraProductividad" step="0.01" min="0">
+                <div class="hint-text">Multiplica el costo promedio HH. Da la tarifa de arriba.</div>
+              </div>
+              <div>
+                <label for="pctBonoEntregaAnticipada">% del costo diario por día anticipado</label>
+                <input type="number" id="pctBonoEntregaAnticipada" step="0.01" min="0">
+                <div class="hint-text">
+                  No es un tope de costo: multiplica el costo diario de administración.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grupo-campos">
+            <div class="grupo-titulo">Reparto del bono por meta</div>
+            <div class="form-grid">
+              <div>
+                <label for="pctBonoMO">% para el Maestro de Obras</label>
+                <input type="number" id="pctBonoMO" step="0.01" min="0">
+              </div>
+              <div>
+                <label for="pctBonoING">% para el Ingeniero Residente</label>
+                <input type="number" id="pctBonoING" step="0.01" min="0">
+              </div>
+              <div class="full">
+                <div class="hint-text" id="suma-reparto">—</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grupo-campos">
+            <div class="grupo-titulo">Operación</div>
+            <div class="form-grid">
+              <div>
+                <label for="horasJornada">Horas de jornada</label>
+                <input type="number" id="horasJornada" step="0.5" min="0">
+                <div class="hint-text">Se usa para estimar la asistencia diaria (D-12).</div>
+              </div>
+              <div>
+                <label for="hhMiscelaneosPorDia">HH de misceláneos por día (MIC.01)</label>
+                <input type="number" id="hhMiscelaneosPorDia" step="0.5" min="0">
+                <div class="hint-text">Bolsa automática por día transcurrido, siempre al 100 %.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grupo-campos">
+            <div class="grupo-titulo">Bono por Productividad (tarea / cuadrilla)</div>
+            <div class="form-grid">
+              <div>
+                <label for="factorRetoBP">Factor de reto</label>
+                <input type="number" id="factorRetoBP" step="0.01" min="0" max="1">
+                <div class="hint-text">HH asignadas = HH estimadas × factor. Nunca mayor que 1.</div>
+              </div>
+              <div>
+                <label for="tarifaBPporHH">Tarifa BP por HH estimada (₡)</label>
+                <input type="number" id="tarifaBPporHH" step="1" min="0">
+                <div class="hint-text">El BP es binario: se paga completo o no se paga.</div>
+              </div>
+            </div>
+          </div>
+
+          <ul class="lista-errores" id="lista-errores" style="display:none;"></ul>
+
+          <div class="barra-guardar">
+            <button type="submit" class="btn-accion" id="btn-guardar">Guardar reglas</button>
+            <button type="button" class="btn-secundario" id="btn-revertir">Descartar cambios</button>
+            <span class="estado-guardado" id="estado-guardado"></span>
+          </div>
+
+        </form>
+      </div>
+
+      <!-- Políticas cerradas: se muestran, no se editan -->
+      <div class="card">
+        <h2>Políticas cerradas</h2>
+        <p class="hint-text">
+          Decisiones de empresa, no de proyecto. Se muestran para que se sepan;
+          no se editan desde acá.
+        </p>
+        <ul class="politicas">
+          <li>
+            <strong>D-01 · El bono por productividad tiene piso en ₡0.</strong>
+            Si las HH economizadas salen negativas, se muestra el déficit en horas,
+            pero el monto pagable nunca baja de cero.
+            <code>permitirBonoNegativo: false</code>
+          </li>
+          <li>
+            <strong>D-06 · Una entrega tardía no descuenta en colones.</strong>
+            Los días anticipados tienen piso en cero: tarde significa ₡0 por
+            anticipación, no un cobro en contra.
+            <code>permitirDiasAtrasoNegativos: false</code>
+          </li>
+          <li>
+            <strong>D-05 · Una entrega tardía sí pierde el bono base completo.</strong>
+            Ese es el castigo económico real por atraso.
+          </li>
+        </ul>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script type="module" src="/supervisor/config-proyecto-controller.js"></script>
+</body>
+</html>
