@@ -1,9 +1,8 @@
-import { ROL_SUPERVISOR } from '../js/roles.js';
 import { protegerPagina, cerrarSesion } from '../js/auth.js';
 import { db, collection, getDocs, query, where } from '../js/firebase-config.js';
 import { renderSidebar } from '../js/sidebar.js';
 
-protegerPagina([ROL_SUPERVISOR], (perfil) => {
+protegerPagina(['jefe_cuadrilla'], (perfil) => {
   renderSidebar(perfil);
   document.getElementById('nombre-usuario').textContent = perfil.nombre;
   cargarMisTareas(perfil.uid);

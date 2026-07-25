@@ -1,4 +1,3 @@
-import { ROL_SUPERVISOR } from '../js/roles.js';
 import { protegerPagina, cerrarSesion } from '../js/auth.js';
 import {
   db, collection, onSnapshot, doc, updateDoc, query, orderBy
@@ -7,7 +6,7 @@ import { renderSidebar } from '../js/sidebar.js';
 
 let jefeUid = null;
 
-protegerPagina([ROL_SUPERVISOR], (perfil) => {
+protegerPagina(['jefe_cuadrilla'], (perfil) => {
   renderSidebar(perfil);
   jefeUid = perfil.uid;
   document.getElementById('nombre-usuario').textContent = perfil.nombre;

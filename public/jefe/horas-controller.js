@@ -1,4 +1,3 @@
-import { ROL_SUPERVISOR } from '../js/roles.js';
 import { protegerPagina, cerrarSesion } from '../js/auth.js';
 import { renderSidebar } from '../js/sidebar.js';
 import {
@@ -21,7 +20,7 @@ if (!proyectoId || !tareaId) {
   window.location.href = '/jefe/mis-tareas.html';
 }
 
-protegerPagina([ROL_SUPERVISOR], async (perfil) => {
+protegerPagina(['jefe_cuadrilla'], async (perfil) => {
   jefeUid = perfil.uid;
   renderSidebar(perfil);
   document.getElementById('nombre-usuario').textContent = perfil.nombre;

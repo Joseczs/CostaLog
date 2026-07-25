@@ -1,4 +1,3 @@
-import { ROL_INGENIERO } from '../js/roles.js';
 import { protegerPagina, cerrarSesion } from '../js/auth.js';
 import {
   db, collection, addDoc, updateDoc, doc, onSnapshot, query, orderBy,
@@ -22,7 +21,7 @@ let proyectoEditandoId = null; // null = modal en modo "crear"
 const ESTADOS_ABIERTOS = ['abierta', 'en_progreso'];
 const ESTADOS_CERRADOS = ['terminada', 'pagada'];
 
-protegerPagina([ROL_INGENIERO], (perfil) => {
+protegerPagina(['supervisor', 'admin'], (perfil) => {
   renderSidebar(perfil);
   document.getElementById('nombre-usuario').textContent = perfil.nombre;
   cargarProyectos();
