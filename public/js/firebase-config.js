@@ -19,7 +19,7 @@ import {
   getFirestore,
   doc, getDoc, setDoc, updateDoc, deleteDoc,
   collection, addDoc, query, where, orderBy, onSnapshot, getDocs,
-  collectionGroup, serverTimestamp
+  collectionGroup, serverTimestamp, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -41,5 +41,5 @@ export {
   RecaptchaVerifier, signInWithPhoneNumber,
   doc, getDoc, setDoc, updateDoc, deleteDoc,
   collection, addDoc, query, where, orderBy, onSnapshot, getDocs,
-  collectionGroup, serverTimestamp
+  collectionGroup, serverTimestamp, writeBatch
 };
