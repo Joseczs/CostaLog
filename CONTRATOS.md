@@ -359,7 +359,56 @@ JSON siempre, incluso en simulación. Idempotente: se puede correr dos veces.
    asignar cuadrilla y reportar HH; su camino hoy es `/jefe/horas.html`. El
    bloque 7 reescribe esa pantalla y ahí se decide si se unifican.
 
-**Verificación:** los 14 archivos parsean; cero ocurrencias de `jefe_cuadrilla`,
-`admin` o `esAdmin` fuera de comentarios y del mapa de migración; reglas
-balanceadas, sin funciones huérfanas, máximo 5 `get()` por evaluación (límite 10).
-Login manual con una cuenta de cada rol — ver checklist del handoff.
+**Verificación — hecha en producción, no en teoría:**
+
+- 3 usuarios migrados: 2 a `ingeniero`, 1 a `supervisor`. Cero problemas.
+- Reglas compiladas y desplegadas con `firebase deploy --only firestore`.
+- Cuenta `ingeniero`: entra al dashboard, crea proyecto, persiste.
+- Cuenta `supervisor`: entra a sus tareas, **el toggle de `disponible` funciona**
+  — el pendiente que arrastraba desde varias sesiones queda cerrado —, y
+  `/supervisor/dashboard.html` escrito a mano la rebota.
+
+Ese rebote prueba el guardia de **interfaz**. El del **servidor** son las reglas,
+y quedó probado indirectamente: si estuvieran mal, la creación del proyecto o el
+toggle habrían fallado. Un usuario decidido salta el JavaScript, no las reglas.
+
+---
+
+## Bloque 2 — la trampa que costó la sesión entera
+
+**El repositorio tenía dos historias sin ancestro común.** `git merge-base main master`
+devolvía vacío: `master` no se bifurcó de `main`, nació aparte. Netlify publicaba
+`main`; todo el desarrollo vivía en `master`.
+
+Consecuencia: **ningún push llegó nunca al sitio.** Ni el bloque 0, ni el 1, ni el 2.
+No se notó antes porque los bloques 0 y 1 son módulos puros y repositorios que
+ninguna pantalla carga todavía — faltar no rompe nada. El bloque 2 fue el primero
+que tocó archivos que el navegador sí pide, y ahí explotó.
+
+**El síntoma engañoso:** `roles.js` daba 404 y devolvía `index.html` por el redirect
+de `netlify.toml`. El navegador rechazaba el módulo por MIME type. Parecía que
+Netlify no copiaba archivos nuevos. No era eso: Netlify construía otra rama.
+
+**El dato que lo delataba estaba a la vista desde el principio:** la lista de deploys
+decía `main@8834586`. La rama y el hash no eran los del push.
+
+> **Regla para la próxima.** Cuando un deploy no refleje un push, lo primero es
+> verificar **qué commit construyó el proveedor**, antes de teorizar sobre caché,
+> archivos nuevos o configuración. Un hash que no cambia es el diagnóstico entero.
+
+**Segundo hallazgo, del mismo origen.** Ya con la rama corregida, el dashboard
+seguía muerto: faltaba `public/js/reglasBono.config.js`, borrado por un commit de
+limpieza anterior en `master` y que solo sobrevivía en `main`. Se restauró con
+`git checkout origin/main -- public/js/reglasBono.config.js`. Mismo síntoma exacto
+—404 → HTML → MIME type— y por eso el error de consola es tan reconocible.
+
+**Estado del repositorio al cerrar:**
+
+- Rama única: `master`. `main` borrada; sus 30 commits conservados en el tag
+  `archivo-main` por si alguna vez hacen falta.
+- Rama por defecto de GitHub y rama de producción de Netlify: ambas `master`.
+- `package.json` sin `netlify-cli` (incompatible con Node v26). El script
+  `npm run deploy` ya no corre; se publica por push, que es el flujo real.
+- **No volver a subir archivos por la interfaz web de GitHub.** Los 30 commits de
+  `main` eran "Add files via upload" / "Delete public directory", y esa mecánica
+  fue el origen de la historia paralela.
