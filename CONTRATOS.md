@@ -18,7 +18,8 @@ desactualizado es peor que no tenerlo.
 | 2 | Roles + reglas Firestore | ✅ hecho | matriz + login manual 2 roles |
 | 3 | Configuración del proyecto | ✅ hecho | 15/15 tests + checklist visual |
 | 4a | Fundaciones + lista de metas | ✅ hecho | 22/22 + 15/15 + checklist visual |
-| 4b | Detalle de meta e hitos | ⬜ | — |
+| 4b | Detalle de meta e hitos | ⬜ | decisiones cerradas, sin código |
+| 4c | Propuesta de avance (móvil) | ⬜ | — |
 | 5 | Resumen y proyección de bono | ⬜ | — |
 | 6 | Extras, créditos y evaluaciones | ⬜ | — |
 | 7 | Tareas BP + migración de pesos | ⬜ | — |
@@ -721,3 +722,144 @@ filaDeMeta(meta)       // → objeto de fila, ya en texto. Sin DOM.
 
 - **Deuda 5 — `formato.js` no existía.** Cerrada.
 - **Deuda 6 — Configuración sin entrada de menú.** Cerrada.
+
+---
+
+## Bloque 4b — decisiones cerradas ANTES del código ⬜
+
+Esta sección se escribió sin tocar una línea de código. El contrato se escribe
+antes que el código; si algo de acá resulta mal, se corrige **acá primero**.
+
+### Alcance — 5 archivos
+
+```
+public/supervisor/meta-detalle.html            ← nuevo
+public/supervisor/meta-detalle-controller.js   ← nuevo
+public/supervisor/hitos-tabla.js               ← nuevo
+public/css/styles.css                          ← EXCEPCIÓN declarada, ver D-4b-06
+public/supervisor/metas-controller.js          ← EXCEPCIÓN, solo el enlace al detalle
+```
+
+Los dos últimos son excepciones a "un bloque nunca modifica los archivos de
+otro", declaradas por adelantado y acotadas: en `metas-controller.js` se toca
+**solo** la fila para que enlace al detalle, que es la deuda que el 4a dejó
+anotada por no querer pintar un enlace muerto.
+
+### D-4b-01 — El 4b es SOLO del rol `ingeniero`
+
+`protegerPagina([ROL_INGENIERO], …)`. De D-11 entra la mitad de **aprobar**; la
+mitad de **proponer** se va a un bloque propio, **4c, diseñado primero para
+teléfono**.
+
+El motivo es de diseño, no de alcance: la guía es explícita en que las pantallas
+del Maestro de Obras se diseñan primero para móvil y no se adaptan después. Una
+tabla de 52 renglones nace en escritorio; meter ahí la propuesta de avance es
+exactamente la adaptación que la guía prohíbe.
+
+Consecuencia buena: el 4b aprueba propuestas **desde el día uno**, aunque
+todavía no exista la pantalla que las crea. El flujo se prueba escribiendo
+`avancePropuesto` a mano en el fixture, sin esperar al 4c.
+
+### D-4b-02 — Forma del mapa `totales`
+
+Plano, sin anidar. Es lo único que la lista del 4a puede leer sin abrir los
+hitos de cada meta.
+
+```js
+{
+  hhEstimadasTotal, hhGanadasTotal, hhEconomizadas, indicador,  // indicador = fracción
+  bonoTotalBruto, factorCalidad, bonoMO, bonoING,
+  bonoBaseSePerdio,     // bool — el aviso de D-05 en la lista
+  produccionOrigen,     // 'planilla' | 'estimado' | 'mixto' | 'sin_datos'
+  esDefinitivo,         // bool
+  calculadoEn,          // Timestamp
+  calculadoPor,         // uid
+}
+```
+
+`produccionOrigen` y `esDefinitivo` **no son opcionales**: son lo que le permite
+a la lista cumplir D-12 sin leer nada más. Una cifra estimada no se puede ver
+igual que una definitiva, y sin esos dos campos el mapa obliga a pintar el
+número pelado — que es justo lo que D-12 prohíbe.
+
+`calculadoEn` / `calculadoPor` porque cerrar la meta es uno de los cinco
+momentos donde el sistema se rompe, y todos llevan autor y fecha.
+
+### D-4b-03 — `totales` NO lleva contador de avances pendientes
+
+Se evaluó y se descartó. Por las reglas del bloque 2, el documento `metas` solo
+lo escribe el `ingeniero`: un supervisor proponiendo tres avances **no puede
+tocar ese contador**. Quedaría en 0 justo cuando hay trabajo esperando
+aprobación — un control que miente en la dirección que esconde, y que nadie
+sabría que está mintiendo.
+
+El **detalle** sí lo muestra en vivo: ya lee los hitos, le sale gratis.
+
+Para que la **lista** lo muestre hace falta abrir `firestore.rules` y darle al
+supervisor un `hasOnly(['avancesPendientes'])` sobre el documento de la meta.
+Eso es territorio del bloque 2 y necesita su propio deploy de reglas. Ver
+deuda 11.
+
+### D-4b-04 — `MIC.01` se pinta
+
+Al final de la tabla, con fondo distinto, sin `id`, sin ningún campo editable y
+con la fórmula a la vista (`días × hhMiscelaneosPorDia`).
+
+Si no se pinta, los 2 697,10 del pie no cuadran con la suma de los 52 renglones
+de arriba y alguien va a "arreglar" un total que está bien. Un renglón calculado
+que **se ve** calculado explica la diferencia solo.
+
+Sigue sin persistirse: el motor lo genera en memoria (§4-bis). Se pinta, no se
+guarda.
+
+### D-4b-05 — Cuándo se escribe a Firestore
+
+El cálculo corre en memoria en cada tecla (3,65 µs con 52 hitos, medido en el
+bloque 0). A Firestore se escribe:
+
+1. el hito, **al salir del campo** — no por tecla;
+2. `totales` inmediatamente después, en una segunda escritura.
+
+Si la segunda falla, los totales quedan viejos. Es tolerable y ya está
+declarado: la lista del 4a dice al pie que ahí se lee el mapa guardado, no un
+cálculo en vivo, y que el detalle manda. La pantalla que recalcula siempre es la
+que tiene la razón.
+
+### D-4b-06 — Los estilos de tabla suben a `css/styles.css`
+
+Segunda excepción declarada, con el mismo criterio que la primera (la deuda 5
+del 4a): hay dos pantallas con tablas casi iguales y este es el momento exacto
+en que empiezan a divergir. Sube ahora o no sube nunca. Cierra la deuda 8.
+
+### Prueba de aceptación — sin cambios
+
+Cargar los 52 hitos del fixture UNA UNIDEPRO y que la tabla dé **2 697,10** y
+**1 092,25**, con los misceláneos incluidos. Es el mismo criterio del bloque 0,
+ahora atravesando Firestore y la UI.
+
+### Deuda que este bloque abre
+
+11. **El contador de avances pendientes no llega a la lista de metas** (ver
+    D-4b-03). Hoy el contrapeso de D-11 solo se ve entrando al detalle de cada
+    meta. Cerrarlo exige `firestore.rules` y por tanto bloque propio con deploy.
+    Mientras siga abierta, la lista no avisa que hay trabajo esperando.
+
+### Deuda que este bloque cierra
+
+- **Deuda 8 — tablas sin unificar.** La cierra D-4b-06.
+- **El enlace muerto al detalle**, que el 4a dejó a propósito sin pintar.
+
+### Plantilla de arranque
+
+```
+Bloque 4b: detalle de meta e hitos.
+Leé CONTRATOS.md y estos archivos:
+  public/js/repos/hitosRepo.js
+  public/js/repos/metasRepo.js
+  public/js/core/calculoMeta.js
+  public/js/formato.js
+  public/supervisor/metas-controller.js
+Las decisiones D-4b-01 a D-4b-06 ya están cerradas en CONTRATOS.md.
+No toques ningún otro archivo.
+Al terminar, corré la prueba de aceptación y actualizá CONTRATOS.md.
+```
