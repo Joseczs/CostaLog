@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Detalle de meta – COSTACON</title>
+<link rel="stylesheet" href="/css/styles.css">
+<style>
+  /* Estilos locales, igual que en el bloque 3 y el 4a. La unificación en
+     css/styles.css se sacó de este bloque a propósito: exigía tocar también
+     metas.html y el bloque son 5 archivos. Ver deuda 8 en CONTRATOS.md. */
+
+  .tira-datos { display:flex; flex-wrap:wrap; gap:22px; font-size:13px; }
+  .tira-datos div { min-width:110px; }
+  .tira-datos .etiqueta {
+    display:block; font-size:10px; text-transform:uppercase; letter-spacing:.5px;
+    color:#8794a1; margin-bottom:3px;
+  }
+  .tira-datos .valor { color:var(--azul-oscuro); font-weight:600; }
+
+  .tabla-hitos { width:100%; border-collapse:collapse; font-size:12.5px; }
+  .tabla-hitos th {
+    background:var(--azul-claro); color:var(--azul-oscuro); text-align:left;
+    padding:8px 8px; font-size:10.5px; text-transform:uppercase; letter-spacing:.4px;
+    border-bottom:2px solid var(--gris-borde); white-space:nowrap;
+    position:sticky; top:0; z-index:2;
+  }
+  .tabla-hitos td { padding:7px 8px; border-bottom:1px solid #eef2f5; vertical-align:top; }
+  .tabla-hitos .num { text-align:right; white-space:nowrap; }
+  .tabla-hitos .col-codigo { white-space:nowrap; font-family:monospace; color:var(--azul-oscuro); }
+  .tabla-hitos .col-desc { min-width:190px; }
+  .tabla-hitos tfoot td {
+    border-top:2px solid var(--gris-borde); font-weight:700;
+    color:var(--azul-oscuro); padding:10px 8px; background:#FAFCFD;
+  }
+  .tabla-scroll { max-height:62vh; overflow:auto; border:1px solid var(--gris-borde); border-radius:6px; }
+
+  .campo-avance {
+    width:74px; padding:4px 6px; font-size:13px; text-align:right;
+    border:1px solid var(--gris-borde); border-radius:4px;
+  }
+  .campo-avance.guardando { opacity:.5; }
+  .avance-fijo { color:#8794a1; font-style:italic; }
+  .por-punto { font-size:10px; color:#9aa7b3; margin-top:2px; white-space:nowrap; }
+  .col-ganadas { font-weight:600; color:var(--azul-oscuro); }
+
+  .fila-sintetica { background:#F6F8FA; }
+  .fila-sintetica .col-codigo { color:#8794a1; }
+  .fila-credito .num { color:var(--rojo-error); }
+  .fila-con-propuesta { background:#FFFBF2; }
+
+  .marca-calculado, .marca-credito, .marca-extra {
+    display:inline-block; margin-left:6px; padding:1px 6px; border-radius:10px;
+    font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.3px;
+  }
+  .marca-calculado { background:#E8EDF2; color:#5d6b7a; }
+  .marca-credito   { background:#FDECEC; color:#A32D2D; }
+  .marca-extra     { background:#E6F1FB; color:#0C447C; }
+
+  /* D-11: la propuesta pendiente tiene que verse DISTINTA del valor
+     aprobado. Si las dos cifras se ven iguales, el control no sirve. */
+  .propuesta { display:flex; flex-direction:column; gap:3px; }
+  .propuesta-valor { font-weight:700; color:#8a5a00; white-space:nowrap; }
+  .propuesta-delta { font-size:11px; white-space:nowrap; }
+  .propuesta-delta.sube { color:#1B7F5A; }
+  .propuesta-delta.baja { color:var(--rojo-error); }
+  .propuesta-acciones { display:flex; gap:5px; margin-top:2px; }
+  .sin-propuesta { color:#c8d2da; }
+  .btn-mini {
+    padding:2px 8px; font-size:11px; border-radius:4px; cursor:pointer;
+    border:1px solid var(--gris-borde); background:#fff; color:var(--gris-texto);
+  }
+  .btn-aprobar { border-color:#1B7F5A; color:#1B7F5A; font-weight:600; }
+  .btn-descartar { color:#8794a1; }
+
+  .pendientes-hay  { color:#8a5a00; font-weight:600; font-size:12px; }
+  .pendientes-cero { color:#9aa7b3; font-size:12px; }
+
+  .monto { font-size:24px; font-weight:700; }
+  .monto.definitivo { color:var(--azul-oscuro); }
+  .monto.estimado   { color:#8a5a00; }
+  .procedencia { font-size:11.5px; color:#8794a1; margin-top:3px; }
+  .caja-factor {
+    border-left:3px solid var(--azul-claro); padding-left:12px; margin-left:4px;
+  }
+  .aviso-fuerte {
+    background:#FDECEC; border:1px solid #F5C2C2; color:#A32D2D;
+    padding:10px 12px; border-radius:6px; font-size:13px; margin-top:12px;
+  }
+  .aviso-lectura {
+    background:#F4F8FB; border:1px solid #D6E4EF; padding:10px 12px;
+    border-radius:6px; font-size:13px; margin-top:12px;
+  }
+  .info-msg { color:#0C447C; font-size:12.5px; }
+  .guardado-ok    { color:#1B7F5A; font-size:11.5px; }
+  .guardado-error { color:var(--rojo-error); font-size:11.5px; }
+  .nota-pie { font-size:11px; color:#8794a1; margin-top:12px; line-height:1.6; }
+</style>
+</head>
+<body>
+
+  <header class="app-header">
+    <h1>COSTACON – Detalle de meta</h1>
+    <div class="user-info">
+      <span id="nombre-usuario"></span>
+      <button class="btn-logout" id="btn-logout">Salir</button>
+    </div>
+  </header>
+
+  <div class="app-container">
+
+    <div id="avisos"></div>
+
+    <!-- ── Cabecera de la meta ────────────────────────────────────────── -->
+    <div class="card">
+      <a id="enlace-volver" href="/supervisor/metas.html" class="hint-text">← Volver a la lista de metas</a>
+      <h2 id="titulo-meta">Meta</h2>
+      <div class="tira-datos">
+        <div><span class="etiqueta">Proyecto</span><span class="valor" id="nombre-proyecto">—</span></div>
+        <div><span class="etiqueta">Inicio</span><span class="valor" id="fecha-inicio">—</span></div>
+        <div><span class="etiqueta">Límite</span><span class="valor" id="fecha-limite">—</span></div>
+        <div><span class="etiqueta">Evaluación</span><span class="valor" id="fecha-evaluacion">—</span></div>
+        <div><span class="etiqueta">Entrega</span><span class="valor" id="fecha-entrega">—</span></div>
+        <div><span class="etiqueta">Estado</span><span class="valor" id="estado-meta">—</span></div>
+      </div>
+      <div class="aviso-lectura" id="aviso-solo-lectura" style="display:none;">
+        Esta meta está <strong>cerrada o pagada</strong>: la tabla es de solo lectura y
+        calcula con sus reglas congeladas. Reabrirla es una acción explícita y auditada.
+      </div>
+    </div>
+
+    <!-- ── Resumen, con el factor de calidad AL LADO del monto ────────── -->
+    <div class="card">
+      <h2>Dónde va el bono</h2>
+      <div class="tira-datos" style="gap:34px; align-items:flex-start;">
+        <div>
+          <span class="etiqueta">Bono Maestro de Obras</span>
+          <span class="monto" id="bono-mo">—</span>
+          <div class="procedencia" id="procedencia">—</div>
+        </div>
+        <div class="caja-factor">
+          <span class="etiqueta">Factor de calidad</span>
+          <span class="valor" style="font-size:18px;" id="factor-calidad">—</span>
+          <div class="procedencia" id="factor-nota">—</div>
+        </div>
+        <div>
+          <span class="etiqueta">HH economizadas</span>
+          <span class="valor" id="hh-economizadas">—</span>
+        </div>
+        <div>
+          <span class="etiqueta">Indicador</span>
+          <span class="valor" id="indicador">—</span>
+        </div>
+        <div>
+          <span class="etiqueta">HH de producción</span>
+          <span class="valor" id="hh-produccion">—</span>
+        </div>
+      </div>
+
+      <div class="aviso-fuerte" id="aviso-bono-base" style="display:none;">
+        <strong>El bono base se perdió.</strong> La entrega quedó después de la fecha
+        límite y por D-05 esa parte no se paga.
+      </div>
+
+      <p class="nota-pie">
+        La cascada completa —base → anticipada → productividad → bruto → × factor →
+        ING / MO— es la pantalla del bloque 5. Acá va el resultado con su procedencia
+        al lado, que es lo mínimo para que el número signifique algo.
+      </p>
+    </div>
+
+    <!-- ── Tabla de hitos ─────────────────────────────────────────────── -->
+    <div class="card">
+      <h2>Hitos</h2>
+      <p id="contador-pendientes" class="pendientes-cero">—</p>
+
+      <div class="tabla-scroll">
+        <table class="tabla-hitos" id="tabla-hitos">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Descripción</th>
+              <th>Unidad</th>
+              <th class="num">Cantidad</th>
+              <th class="num">HH/u</th>
+              <th class="num">HH estimadas</th>
+              <th>% avance</th>
+              <th class="num">HH ganadas</th>
+              <th>Propuesta pendiente</th>
+            </tr>
+          </thead>
+          <tbody id="cuerpo-hitos"></tbody>
+          <tfoot>
+            <tr>
+              <td colspan="5">Totales de la meta (incluyen misceláneos)</td>
+              <td class="num" id="total-estimadas">—</td>
+              <td></td>
+              <td class="num" id="total-ganadas">—</td>
+              <td><span id="estado-guardado" class="guardado-ok"></span></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <p class="nota-pie">
+        El avance se guarda <strong>al salir del campo</strong>, no mientras se digita, y
+        queda con autor y fecha. Debajo de cada campo está lo que vale un punto de avance
+        en horas: es la relación que convierte el porcentaje en una decisión y no en un
+        número que se llena.
+        <br>
+        El renglón <code>MIC.01</code> es <strong>calculado</strong>: no existe en la base
+        de datos, lo genera el motor por día transcurrido y por eso no se edita. Los
+        totales del pie lo incluyen — por eso no cuadran con la suma a mano de los
+        renglones de arriba.
+      </p>
+    </div>
+
+  </div>
+
+  <script type="module" src="/supervisor/meta-detalle-controller.js"></script>
+</body>
+</html>

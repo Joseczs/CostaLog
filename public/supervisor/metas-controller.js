@@ -270,7 +270,7 @@ async function arrancar() {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td class="col-meta">
-          <strong>${escapar(f.numero)}</strong>
+          <a href="/supervisor/meta-detalle.html?proyecto=${encodeURIComponent(proyectoActualId)}&meta=${encodeURIComponent(f.id)}"><strong>${escapar(f.numero)}</strong></a>
           ${f.esFixture ? '<span class="marca-fixture">fixture</span>' : ''}
         </td>
         <td>${escapar(f.inicio)}</td>

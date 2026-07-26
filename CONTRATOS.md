@@ -18,7 +18,7 @@ desactualizado es peor que no tenerlo.
 | 2 | Roles + reglas Firestore | ✅ hecho | matriz + login manual 2 roles |
 | 3 | Configuración del proyecto | ✅ hecho | 15/15 tests + checklist visual |
 | 4a | Fundaciones + lista de metas | ✅ hecho | 22/22 + 15/15 + checklist visual |
-| 4b | Detalle de meta e hitos | ⬜ | decisiones cerradas, sin código |
+| 4b | Detalle de meta e hitos | ✅ hecho | 24/24 + checklist visual |
 | 4c | Propuesta de avance (móvil) | ⬜ | — |
 | 5 | Resumen y proyección de bono | ⬜ | — |
 | 6 | Extras, créditos y evaluaciones | ⬜ | — |
@@ -863,3 +863,112 @@ Las decisiones D-4b-01 a D-4b-06 ya están cerradas en CONTRATOS.md.
 No toques ningún otro archivo.
 Al terminar, corré la prueba de aceptación y actualizá CONTRATOS.md.
 ```
+
+---
+
+## Bloque 4b — detalle de meta e hitos ✅
+
+```
+public/supervisor/meta-detalle.html            ← nuevo
+public/supervisor/meta-detalle-controller.js   ← nuevo
+public/supervisor/hitos-tabla.js               ← nuevo
+public/supervisor/metas-controller.js          ← EXCEPCIÓN, solo el enlace al detalle
+test/bloque4b.mjs                              ← nuevo, fuera del deploy y del conteo
+```
+
+### ⚠️ Corrección del contrato: D-4b-06 no se cumplió, y el motivo
+
+**`css/styles.css` NO se tocó.** La decisión D-4b-06 decía subir ahí los estilos
+de tabla. Al ir a ejecutarla apareció la cuenta que no se había hecho: unificar
+exige tocar `styles.css` **y** `metas.html` —que tiene los suyos locales— y con
+los tres archivos nuevos más `metas-controller.js` eso da **seis**. El máximo
+son cinco, y pasarse significa que el bloque estaba mal cortado.
+
+Se corrige acá, explícitamente y no de contrabando, como manda el método:
+**D-4b-06 queda revocada.** `meta-detalle.html` lleva sus estilos locales, igual
+que el bloque 3 y el 4a. La unificación es su propio bloque —dos archivos, riesgo
+bajo— y la deuda 8 sigue abierta con la cuenta ya hecha.
+
+### `hitos-tabla.js`
+
+Dos mitades: modelo puro arriba, pintado abajo. La prueba de aceptación corre
+contra el modelo, no contra el navegador.
+
+```js
+ID_MISCELANEOS                                  // '__mic01__'
+hitoMiscelaneos(hhMisc, reglas)                 // → el hito sintético
+filaDeHito(hito, { editable })                  // → modelo de fila, ya en texto
+modeloTabla(hitos, resultado, reglas, opciones) // → { filas, pendientes, pie }
+pintarTabla(tbody, modelo, manejadores)         // DOM
+```
+
+### `meta-detalle-controller.js`
+
+```js
+ESTADOS_SOLO_LECTURA                  // ['cerrada', 'pagada']  congelado
+esEditable(meta)                      // → boolean
+textoProcedencia(produccion, meta)    // → string   D-12, nunca vacío
+totalesDesdeResultado(resultado, uid) // → el mapa de D-4b-02
+validarAvance(valor)                  // → { ok, valor } | { ok:false, error }
+```
+
+**Invariantes que no se rompen:**
+
+- **Los totales del pie se leen del motor, NO de sumar las filas.** El motor es
+  la única fuente. Si un día no coincidieran, el que tiene razón es él.
+- **`MIC.01` se pinta y no se edita** (D-4b-04). Sin `id` de documento, con la
+  marca "calculado" y fondo distinto. Los 2 697,10 lo incluyen: por eso no
+  cuadran con la suma a mano de los 52 renglones, y el pie de la pantalla lo
+  dice con todas las letras.
+- **El ingeniero escribe `avancePct` por la vía de `aprobarAvance`**, no de
+  `actualizar`. Así queda `aprobadoPor` y `aprobadoEn`. Digitar el avance es uno
+  de los cinco momentos donde el sistema se rompe y todos llevan autor y fecha.
+- **Se escribe al `change`, nunca al `input`.** Con `input`, el "3" que va camino
+  de "35" sería un avance guardado.
+- **Un avance inválido se rechaza con el motivo y el campo vuelve al valor
+  bueno.** Nunca se corrige en silencio: un 700 % recortado a 100 % es plata
+  inventada sin que nadie se entere. Se acepta la coma decimal, que es como se
+  digita acá.
+- **Una propuesta de `0` NO es "sin propuesta".** El cero es un valor propuesto
+  —bajar un hito a cero— y la fila lo distingue de `null`. Tiene prueba propia.
+- **La propuesta pendiente se ve distinta del valor aprobado** (D-11): fila con
+  fondo, la cifra propuesta en otro color, y **el delta en horas con signo**. Si
+  las dos cifras se vieran iguales, el control no serviría de nada.
+- **Debajo de cada campo va lo que vale UN punto de avance en horas.** Es la
+  relación que convierte el porcentaje en una decisión y no en un número que se
+  llena.
+- **El bono nunca se pinta pelado** (D-12): siempre con su procedencia al lado, y
+  en otro color cuando no es definitivo. El **factor de calidad va junto al
+  monto**, no en otra pestaña: es el freno del sistema y esconderlo lo desactiva.
+- **Una meta `cerrada` o `pagada` es de solo lectura.** Tiene el snapshot
+  congelado y montos liquidados; reabrirla es una acción explícita y auditada
+  (D-10), no un clic distraído sobre una celda.
+- **Las reglas salen de `reglasSnapshot` si existe**, y solo si no, de la
+  configuración viva del proyecto (D-10). Al abrir un histórico no pueden
+  aparecer montos que nunca se pagaron.
+- **Los hitos se cargan una vez y se recalcula en memoria.** 3,65 µs con 52
+  hitos: volver a Firestore por cada tecla sería pagar red por algo gratis.
+- **Si falla la escritura de `totales`, se avisa en pantalla y no se reintenta
+  solo.** Unos totales viejos son un problema visible; un reintento en silencio
+  que también falle, no.
+
+### Verificación
+
+- `test/bloque4b.mjs` — **24/24** en Node, sin red. Incluye LA prueba de
+  aceptación: el pie de la tabla da **2 697,10** y **1 092,25** con los
+  misceláneos incluidos, y el `totales` guardado lleva **₡498 480** de `bonoMO`
+  y **₡0** de `bonoING`.
+- `test/formato.mjs` 22/22 y `test/bloque3.mjs` 15/15, intactos.
+
+### Deuda
+
+- **8 — tablas sin unificar.** SIGUE ABIERTA, con la cuenta hecha: son
+  `css/styles.css` + `metas.html` + `meta-detalle.html`, tres archivos, bloque
+  propio de riesgo bajo. Ahora hay tres pantallas con tablas casi iguales.
+- **11 — el contador de pendientes no llega a la lista de metas.** El detalle
+  sí lo muestra ("N avances propuestos sin aprobar"); la lista no puede sin
+  abrir `firestore.rules`. Ver D-4b-03.
+- **12 — nadie propone avances todavía.** La mitad de PROPONER de D-11 es el
+  bloque 4c, móvil primero. Mientras tanto, la columna de propuestas de esta
+  pantalla se prueba escribiendo `avancePropuesto` a mano en el fixture. El 4b
+  aprueba desde el día uno.
