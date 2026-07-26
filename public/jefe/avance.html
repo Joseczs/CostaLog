@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Reportar avance – COSTACON</title>
+<link rel="stylesheet" href="/css/styles.css">
+<style>
+  /* ══════════════════════════════════════════════════════════════════
+     Estilos MÓVIL PRIMERO. Las medias queries de acá abajo AGRANDAN
+     para escritorio; no hay ninguna que achique. Es el orden que exige
+     la restricción del bloque: esta pantalla nace en el teléfono.
+     ══════════════════════════════════════════════════════════════════ */
+
+  .contenedor-avance { max-width: 640px; margin: 0 auto; padding: 12px; }
+
+  /* ── Las DOS cifras. Nunca una sola. ───────────────────────────── */
+  .panel-bono {
+    background: var(--azul-oscuro); color: #fff; border-radius: 10px;
+    padding: 16px; margin-bottom: 14px;
+  }
+  .panel-bono .fila { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .panel-bono .etiqueta { font-size: 11px; opacity: .75; text-transform: uppercase; letter-spacing: .5px; }
+  .panel-bono .cifra-aprobada { font-size: 30px; font-weight: 700; line-height: 1.1; }
+  .panel-bono .cifra-propuesta { font-size: 19px; font-weight: 600; opacity: .9; }
+  .panel-bono .diferencia { font-size: 13px; margin-top: 8px; }
+  .panel-bono .diferencia.hay { color: #9BE3C4; font-weight: 600; }
+  .panel-bono .diferencia.cero { opacity: .6; }
+  .panel-bono .nota { font-size: 11px; opacity: .65; margin-top: 8px; line-height: 1.5; }
+  .panel-bono hr { border: none; border-top: 1px solid rgba(255,255,255,.18); margin: 12px 0; }
+
+  /* ── Tarjetas: sin tabla. Un dato dominante por tarjeta. ───────── */
+  .tarjeta-hito {
+    background: #fff; border: 1px solid var(--gris-borde); border-radius: 10px;
+    padding: 14px; margin-bottom: 10px;
+  }
+  .tarjeta-hito.con-propuesta { border-color: #E8B04B; background: #FFFCF5; }
+  .tarjeta-hito.completo { opacity: .62; }
+
+  .tarjeta-cabecera { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .tarjeta-cabecera .codigo { font-family: monospace; font-size: 13px; color: var(--azul-oscuro); font-weight: 700; }
+  .tarjeta-cabecera .pendiente { font-size: 12px; color: #8794a1; white-space: nowrap; }
+  .descripcion { font-size: 14px; color: var(--gris-texto); margin: 6px 0 12px; line-height: 1.4; }
+
+  /* Objetivos de toque de 48 px: manos sucias, sol de frente, guantes. */
+  .control-avance { display: flex; align-items: center; gap: 8px; }
+  .btn-paso, .btn-cien {
+    min-width: 48px; min-height: 48px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--gris-borde); background: #F4F8FB;
+    color: var(--azul-oscuro); font-size: 15px; font-weight: 700;
+  }
+  .btn-cien { min-width: 60px; font-size: 13px; }
+  .btn-paso:active, .btn-cien:active { background: var(--azul-claro); }
+  .campo-avance {
+    width: 82px; min-height: 48px; text-align: center; font-size: 22px;
+    font-weight: 700; color: var(--azul-oscuro);
+    border: 2px solid var(--gris-borde); border-radius: 8px; padding: 0 4px;
+  }
+  .signo-pct { font-size: 17px; color: #8794a1; margin-left: -4px; }
+
+  .tarjeta-pie {
+    display: flex; flex-direction: column; gap: 3px; margin-top: 10px;
+    font-size: 12px;
+  }
+  .delta { font-weight: 600; color: #8794a1; }
+  .delta.sube { color: #1B7F5A; }
+  .delta.baja { color: var(--rojo-error); }
+  .por-punto { font-size: 11px; color: #9aa7b3; }
+
+  .estado-envio { font-size: 12px; margin-top: 8px; min-height: 16px; }
+  .estado-envio.enviando { color: #8794a1; }
+  .estado-envio.ok { color: #1B7F5A; }
+  .estado-envio.error {
+    color: var(--rojo-error); font-weight: 600; cursor: pointer;
+    padding: 6px 0; text-decoration: underline;
+  }
+
+  .barra-filtro {
+    display: flex; align-items: center; gap: 8px; font-size: 13px;
+    color: var(--gris-texto); margin-bottom: 10px;
+  }
+  .barra-filtro input { width: 20px; height: 20px; }
+
+  .aviso-sin-enviar {
+    position: sticky; bottom: 0; background: #FDECEC; color: #A32D2D;
+    border: 1px solid #F5C2C2; border-radius: 8px; padding: 10px 12px;
+    font-size: 13px; font-weight: 600; text-align: center; margin-top: 10px;
+  }
+  .vacio { color: #8794a1; font-size: 13px; padding: 20px; text-align: center; }
+  .cabecera-meta { font-size: 13px; color: #8794a1; margin-bottom: 12px; }
+  .cabecera-meta strong { color: var(--azul-oscuro); font-size: 16px; }
+  #selector-proyecto { width: 100%; min-height: 48px; font-size: 15px; margin-bottom: 12px; }
+
+  /* Escritorio: la misma pantalla, con aire. Nada nuevo, nada distinto. */
+  @media (min-width: 760px) {
+    .contenedor-avance { max-width: 760px; padding: 20px; }
+    .tarjeta-pie { flex-direction: row; justify-content: space-between; align-items: baseline; }
+  }
+</style>
+</head>
+<body>
+
+  <header class="app-header">
+    <h1>Reportar avance</h1>
+    <div class="user-info">
+      <span id="nombre-usuario"></span>
+      <button class="btn-logout" id="btn-logout">Salir</button>
+    </div>
+  </header>
+
+  <div class="contenedor-avance">
+
+    <div id="avisos"></div>
+
+    <select id="selector-proyecto" aria-label="Proyecto">
+      <option value="">Elegí el proyecto…</option>
+    </select>
+
+    <div id="seccion-avance" style="display:none;">
+
+      <p class="cabecera-meta">
+        <strong id="titulo-meta">Meta</strong> · entrega el <span id="fecha-limite">—</span>
+      </p>
+
+      <!-- ── Las dos cifras: lo ganado y lo que está en juego ──────── -->
+      <section class="panel-bono">
+        <div class="fila">
+          <span class="etiqueta">Tu bono aprobado</span>
+          <span class="cifra-aprobada" id="bono-aprobado">—</span>
+        </div>
+        <hr>
+        <div class="fila">
+          <span class="etiqueta">Con lo que propusiste</span>
+          <span class="cifra-propuesta" id="bono-propuesto">—</span>
+        </div>
+        <div class="diferencia cero" id="bono-diferencia">—</div>
+        <p class="nota" id="nota-proyeccion">—</p>
+        <p class="nota">
+          Lo que proponés lo <strong>aprueba el Ingeniero</strong>. Hasta que lo
+          apruebe, la cifra de abajo no es plata: es lo que estás pidiendo que te
+          reconozcan.
+        </p>
+      </section>
+
+      <label class="barra-filtro">
+        <input type="checkbox" id="filtro-pendientes" checked>
+        Mostrar solo lo que falta
+      </label>
+
+      <div id="lista-hitos"></div>
+
+      <div class="aviso-sin-enviar" id="sin-enviar" style="display:none;"></div>
+    </div>
+
+  </div>
+
+  <script type="module" src="/jefe/avance-controller.js"></script>
+</body>
+</html>

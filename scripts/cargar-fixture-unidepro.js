@@ -126,6 +126,14 @@ function documentoProyecto() {
     esFixture: true,
     reglasBono: { ...REGLAS_BONO_DEFAULT },
     activo: true,
+    // ⚠️ Sin este campo el proyecto es INVISIBLE en el dashboard del
+    // ingeniero: `dashboard-controller.js` lista con
+    // `orderBy('createdAt','desc')`, y Firestore excluye de una consulta
+    // ordenada todo documento que no tenga el campo por el que se ordena.
+    // No es que se filtre: no existe para esa consulta.
+    // Fecha fija, no `serverTimestamp()`: el script es idempotente y una
+    // marca de tiempo del servidor cambiaría en cada corrida.
+    createdAt: new Date('2026-05-26T06:00:00Z'),
   };
 }
 
