@@ -19,7 +19,7 @@ desactualizado es peor que no tenerlo.
 | 3 | Configuración del proyecto | ✅ hecho | 15/15 tests + checklist visual |
 | 4a | Fundaciones + lista de metas | ✅ hecho | 22/22 + 15/15 + checklist visual |
 | 4b | Detalle de meta e hitos | ✅ hecho | 24/24 + checklist visual |
-| 4c | Propuesta de avance (móvil) | ⬜ | — |
+| 4c | Propuesta de avance (móvil) | ✅ hecho | 19/19 + checklist visual |
 | 5 | Resumen y proyección de bono | ⬜ | — |
 | 6 | Extras, créditos y evaluaciones | ⬜ | — |
 | 7 | Tareas BP + migración de pesos | ⬜ | — |
@@ -972,3 +972,99 @@ validarAvance(valor)                  // → { ok, valor } | { ok:false, error }
   bloque 4c, móvil primero. Mientras tanto, la columna de propuestas de esta
   pantalla se prueba escribiendo `avancePropuesto` a mano en el fixture. El 4b
   aprueba desde el día uno.
+
+---
+
+## Bloque 4c — reportar avance, móvil primero ✅
+
+```
+public/jefe/avance.html             ← nuevo
+public/jefe/avance-controller.js    ← nuevo
+public/js/sidebar.js                ← EXCEPCIÓN, una entrada en el menú del supervisor
+test/bloque4c.mjs                   ← nuevo, fuera del deploy y del conteo
+```
+
+Tres archivos. La mitad de **PROPONER** de D-11, que el 4b dejó sin quién la
+alimentara (deuda 12, ahora cerrada). Rol `supervisor`.
+
+**Sin deploy de reglas.** La matriz del bloque 2 ya le da al supervisor
+`avancePropuesto`, `propuestoPor` y `propuestoEn` sobre `hitos`. Si al probar
+apareciera "Missing or insufficient permissions", esa regla no está desplegada y
+el problema es del bloque 2, no de este.
+
+### `avance-controller.js`
+
+```js
+ESTADOS_REPORTABLES              // ['abierta', 'evaluada']  congelado
+hitosConPropuestas(hitos)        // → copia con avancePropuesto aplicado
+ordenarPorPendiente(hitos)       // → copia ordenada por horas que faltan
+tarjetaDeHito(hito)              // → modelo de tarjeta, ya en texto
+proyeccion(resAprobado, resPropuesto)  // → las DOS cifras y su diferencia
+validarAvance(valor)             // → { ok, valor } | { ok:false, error }
+```
+
+**Invariantes que no se rompen:**
+
+- **Las DOS cifras, siempre.** Es la restricción arquitectónica del plan y el
+  corazón del bloque: se muestra el bono con los avances **aprobados** y el bono
+  con los **propuestos**, nunca solo el segundo. Un bono que solo enseña el
+  escenario con propuestas es una promesa que nadie firmó.
+- **`hitosConPropuestas` NO muta.** Si mutara, la primera cifra dejaría de ser
+  calculable y la pantalla mostraría dos veces el mismo número sin que se note.
+  Tiene prueba propia.
+- **Una propuesta de `0` se aplica.** Bajar un hito a cero es un reporte válido;
+  tratarlo como falsy lo perdería. Vale igual acá que en el 4b.
+- **Este rol NO escribe `totales`.** Ese mapa es del ingeniero (4b). Acá no se
+  llama `guardarTotales`: fallaría por reglas, y con razón. Consecuencia: la
+  lista de metas no refleja lo propuesto hasta que el ingeniero entre al detalle.
+  Es correcto — la lista muestra lo aprobado.
+- **Un gesto por reporte.** Se toca `+5`, `−5` o `100 %`, o se escribe y se sale
+  del campo. No hay botón "guardar" que se pueda olvidar con el teléfono en el
+  bolsillo.
+- **Objetivos de toque de 48 px.** Manos sucias, sol de frente, a veces guantes.
+- **Un fallo de red NO es silencioso.** La tarjeta queda en rojo, "sin enviar —
+  tocá para reintentar", y abajo una barra fija con la cuenta de cambios sin
+  enviar. Un fallo callado en obra es un dato inventado.
+- **Al enviar se repinta SOLO la proyección, no la lista.** Repintar todo
+  reordenaría las tarjetas bajo el dedo, y en obra eso es perder el dato.
+- **La lista se ordena por horas pendientes.** Arriba está lo que más mueve el
+  bono: es la decisión de la mañana —dónde poner a la gente— que hoy se toma de
+  memoria.
+- **Debajo de cada campo, lo que vale un punto en horas** y el avance ya
+  aprobado. El delta contra lo aprobado va con signo.
+- **Móvil primero de verdad:** las medias queries del HTML solo **agrandan** para
+  escritorio. No hay ninguna que achique.
+- **Solo metas `abierta` o `evaluada`.** Sobre una cerrada no hay nada que
+  proponer.
+
+### La prueba que falló, y por qué el código tenía razón
+
+La segunda prueba —"con una propuesta, la cifra aprobada no se mueve"— falló en
+la primera corrida. Antes de tocar el código se miró el dato crudo: usaba el
+hito 0 del fixture, que **ya está al 100 %**, así que proponerle 100 no movía
+nada. El código estaba bien; la expectativa no. Se cambió al hito 1 (70 %) y se
+agregó la prueba que faltaba: proponer lo mismo que ya está aprobado no genera
+diferencia. Es el caso que el método advierte — cuando una expectativa choca con
+el código, primero se verifica la especificación.
+
+### Verificación
+
+- `test/bloque4c.mjs` — **19/19** en Node, sin red.
+- Las otras tres suites intactas: `formato` 22/22, `bloque3` 15/15,
+  `bloque4b` 24/24.
+- Checklist visual a ancho de teléfono: panel con las dos cifras, tarjetas con
+  botones de 48 px, estado "enviado ✓" y estado "sin enviar" con reintento.
+
+### Deuda
+
+- **12 — cerrada.** Ya hay quién proponga avances.
+- **2 — el supervisor ve TODOS los proyectos.** Acá pica más que en ninguna otra
+  pantalla: es un selector largo, en un teléfono, en obra. Es el primer lugar
+  donde alguien va a reportar sobre el proyecto equivocado. `supervisorIds`
+  sigue necesitando su bloque con deploy de reglas, y ahora tiene urgencia.
+- **13 — no hay persistencia sin red de verdad.** Lo que hay es un estado
+  visible por tarjeta con reintento manual, que es honesto pero no resuelve una
+  jornada entera sin señal. La persistencia offline del SDK se habilita en
+  `firebase-config.js`, que es de otro bloque. Candidato a bloque propio corto.
+- **3 — los directorios siguen invertidos.** Esta pantalla vive en `/jefe/`, que
+  es del supervisor. Correcto según el contrato, confuso al leerlo.

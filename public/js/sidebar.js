@@ -43,6 +43,9 @@ const NAV_POR_ROL = {
       grupo: 'General',
       items: [
         { label: 'Mis tareas', icono: '📋', href: '/jefe/mis-tareas.html' },
+        // Bloque 4c — la mitad de PROPONER de D-11. Primero de la lista a
+        // propósito: es la única entrada de datos reales del sistema.
+        { label: 'Reportar avance', icono: '📈', href: '/jefe/avance.html' },
         { label: 'Mi equipo', icono: '👷', href: '/jefe/mi-cuadrilla.html' }
       ]
     }
