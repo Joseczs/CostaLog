@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Metas – COSTACON</title>
+<link rel="stylesheet" href="/css/styles.css">
+<style>
+  /* Estilos locales del bloque 4a. No se toca css/styles.css (bloque ajeno).
+     Las clases `badge-*` sí salen de ahí: se reutilizan, no se redefinen. */
+
+  .tabla-metas { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .tabla-metas th {
+    background: var(--azul-claro); color: var(--azul-oscuro);
+    text-align: left; padding: 9px 10px; font-size: 11px;
+    text-transform: uppercase; letter-spacing: .4px;
+    border-bottom: 2px solid var(--gris-borde); white-space: nowrap;
+  }
+  .tabla-metas td {
+    padding: 11px 10px; border-bottom: 1px solid #eef2f5;
+    vertical-align: top; color: var(--gris-texto);
+  }
+  .tabla-metas tr:last-child td { border-bottom: none; }
+  .tabla-metas .num { text-align: right; white-space: nowrap; }
+  .tabla-metas .col-meta { white-space: nowrap; color: var(--azul-oscuro); }
+  .tabla-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  .marca-fixture {
+    display: inline-block; margin-left: 6px; padding: 1px 6px;
+    background: var(--naranja-claro); color: #8a5a00;
+    border-radius: 10px; font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .4px;
+  }
+
+  .bono-calculado { font-weight: 700; color: var(--azul-oscuro); font-size: 14px; }
+  .bono-pendiente { color: #9aa7b3; }
+  .bono-detalle { font-size: 11px; color: #8794a1; font-weight: 400; margin-top: 2px; }
+
+  .entrega-tarde { color: var(--rojo-error); }
+  .aviso-tarde {
+    display: inline-block; margin-left: 5px; padding: 1px 6px;
+    background: #FDECEC; border: 1px solid #F5C2C2; color: var(--rojo-error);
+    border-radius: 10px; font-size: 10px; font-weight: 700;
+  }
+
+  .resumen-lista { font-size: 12px; color: #8794a1; margin-bottom: 10px; }
+  .nota-pie {
+    font-size: 11px; color: #8794a1; margin-top: 14px;
+    border-top: 1px dashed #eef2f5; padding-top: 10px; line-height: 1.6;
+  }
+  .sin-metas {
+    background: #F4F8FB; border: 1px solid #D6E4EF; border-radius: 6px;
+    padding: 16px; font-size: 13px; color: var(--gris-texto);
+  }
+  .barra-acciones { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+</style>
+</head>
+<body>
+
+  <header class="app-header">
+    <h1>COSTACON – Metas</h1>
+    <div class="user-info">
+      <span id="nombre-usuario"></span>
+      <button class="btn-logout" id="btn-logout">Salir</button>
+    </div>
+  </header>
+
+  <div class="app-container">
+
+    <!-- ── Selector de proyecto ───────────────────────────────────────── -->
+    <div class="card">
+      <h2>Proyecto</h2>
+      <p class="hint-text">
+        Las metas se numeran por proyecto. Con un solo proyecto activo se abre
+        solo; con varios, elegí cuál.
+      </p>
+      <select id="selector-proyecto" style="width:100%; max-width:460px;">
+        <option value="">Selecciona un proyecto…</option>
+      </select>
+      <p class="error-msg" id="error-carga"></p>
+    </div>
+
+    <!-- ── La lista aparece solo con un proyecto seleccionado ─────────── -->
+    <div id="seccion-metas" style="display:none;">
+      <div class="card">
+        <h2>Metas del proyecto</h2>
+        <div class="resumen-lista" id="resumen-lista"></div>
+
+        <div class="sin-metas" id="sin-metas" style="display:none;">
+          Este proyecto todavía no tiene metas activas. La creación de metas
+          entra con la pantalla de detalle.
+        </div>
+
+        <div class="tabla-wrapper">
+          <table class="tabla-metas" id="tabla-metas">
+            <thead>
+              <tr>
+                <th>Meta</th>
+                <th>Inicio</th>
+                <th>Límite</th>
+                <th>Entrega</th>
+                <th class="num">HH planilla</th>
+                <th>Estado</th>
+                <th class="num">Bono Maestro de Obras</th>
+              </tr>
+            </thead>
+            <tbody id="cuerpo-metas"></tbody>
+          </table>
+        </div>
+
+        <p class="nota-pie">
+          <strong>El bono que se lee acá es el mapa <code>totales</code> guardado</strong>,
+          no un cálculo en vivo: es lo que corresponde en una lista. Cuando dice
+          <strong>—</strong> es que esa meta nunca ha guardado sus totales, no que su
+          bono sea ₡0. El detalle de la meta recalcula siempre y es la cifra que manda.
+          <br>
+          Una entrega posterior a la fecha límite marca <strong>tarde</strong>: por D-05
+          esa meta pierde el bono base completo.
+        </p>
+
+        <div class="barra-acciones">
+          <a class="btn-secundario" id="enlace-config" href="/supervisor/config-proyecto.html">
+            Reglas del bono de este proyecto
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="/supervisor/metas-controller.js"></script>
+</body>
+</html>

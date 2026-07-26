@@ -22,6 +22,15 @@ import {
   normalizarReglas,
 } from '../js/core/reglasBono.config.js';
 
+// Bloque 4a — deuda 5 pagada. Las dos funciones de formato vivían acá abajo
+// y se mudaron sin cambiarles una coma a `js/formato.js`.
+import { formatearColones, formatearNumero } from '../js/formato.js';
+
+// Se RE-EXPORTAN a propósito: `test/bloque3.mjs` importa `formatearColones`
+// desde este archivo, y ese test no es del bloque 4a. La mudanza no puede
+// costarle una línea a la prueba de aceptación de un bloque ya cerrado.
+export { formatearColones, formatearNumero };
+
 /* ══════════════════════════════════════════════════════════════════════
    MITAD PURA
    ══════════════════════════════════════════════════════════════════════ */
@@ -42,27 +51,6 @@ export const CAMPOS_NUMERICOS = Object.freeze([
   'factorRetoBP',
   'tarifaBPporHH',
 ]);
-
-/** ₡ con separador de miles de espacio: 640 → "₡640", 15000 → "₡15 000".
- *  ⚠️ Local a propósito. El plan pide un único `formato.js`, pero eso sería
- *  un tercer archivo y el bloque son dos. Se muda en el bloque 4 —
- *  anotado como deuda en CONTRATOS.md. */
-export function formatearColones(n) {
-  if (!Number.isFinite(n)) return '—';
-  const redondeado = Math.round(n * 100) / 100;
-  const [entero, decimales] = String(Math.abs(redondeado)).split('.');
-  const agrupado = entero.replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0');
-  return `${redondeado < 0 ? '−' : ''}₡${agrupado}${decimales ? ',' + decimales : ''}`;
-}
-
-/** Número simple con la misma agrupación, para las fórmulas. */
-export function formatearNumero(n) {
-  if (!Number.isFinite(n)) return '—';
-  const redondeado = Math.round(n * 100) / 100;
-  const [entero, decimales] = String(Math.abs(redondeado)).split('.');
-  const agrupado = entero.replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0');
-  return `${redondeado < 0 ? '−' : ''}${agrupado}${decimales ? ',' + decimales : ''}`;
-}
 
 /**
  * Convierte lo que hay escrito en el formulario en un objeto de reglas completo.

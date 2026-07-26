@@ -17,7 +17,8 @@ desactualizado es peor que no tenerlo.
 | 1 | Capa de datos (repositorios) | ✅ hecho | 50/50 tests + harness |
 | 2 | Roles + reglas Firestore | ✅ hecho | matriz + login manual 2 roles |
 | 3 | Configuración del proyecto | ✅ hecho | 15/15 tests + checklist visual |
-| 4 | Metas e hitos | ⬜ | — |
+| 4a | Fundaciones + lista de metas | ✅ hecho | 22/22 + 15/15 + checklist visual |
+| 4b | Detalle de meta e hitos | ⬜ | — |
 | 5 | Resumen y proyección de bono | ⬜ | — |
 | 6 | Extras, créditos y evaluaciones | ⬜ | — |
 | 7 | Tareas BP + migración de pesos | ⬜ | — |
@@ -571,3 +572,152 @@ pantalla.
   documentos — salen de sumarlos *más* los misceláneos. Decisión abierta para el
   bloque 4b: si la tabla de hitos pinta ese renglón calculado, y cómo se marca
   para que nadie intente editarlo.
+
+---
+
+## Bloque 4a — fundaciones y lista de metas ✅
+
+Cinco archivos, dos nuevos de código, uno nuevo de prueba, dos editados:
+
+```
+public/js/formato.js                        ← nuevo   (deuda 5 pagada)
+public/js/sidebar.js                        ← editado (deuda 6 pagada)
+public/supervisor/metas.html                ← nuevo
+public/supervisor/metas-controller.js       ← nuevo
+public/supervisor/config-proyecto-controller.js  ← editado, EXCEPCIÓN declarada
+test/formato.mjs                            ← nuevo, fuera del deploy y del conteo
+```
+
+El quinto es la **única excepción autorizada** a "un bloque nunca modifica los
+archivos de otro". Se tocó exclusivamente para pagar una deuda que ese mismo
+bloque dejó anotada: se retiraron las dos funciones de formato y se importan de
+`formato.js`. Ni una línea más de ese archivo se movió.
+
+### `public/js/formato.js`
+
+Módulo puro. Sin DOM, sin Firestore, sin red, sin `Date.now()`.
+
+```js
+SIN_DATO                              // '—'  la constante, no el carácter suelto
+formatearColones(n)                   // 640 → "₡640" · 498480 → "₡498 480" · NaN → "—"
+formatearNumero(n)                    // igual, sin el símbolo
+formatearHoras(n, { conSufijo = true })  // 2697.1 → "2 697,10 HH"
+formatearPorcentaje(n, { decimales = 2 })// 35.55 → "35,55 %"   (escala 0–100)
+formatearFecha(v)                     // Date | Timestamp | ISO → "21.07.2026"
+```
+
+**Invariantes que no se rompen:**
+
+- **`formatearColones` y `formatearNumero` se mudaron BYTE A BYTE.** La deuda 5
+  era una mudanza, no una reforma. Se evaluó redondear la moneda a colón entero
+  y se descartó: cambiar comportamiento y de archivo en el mismo movimiento deja
+  sin saber cuál de los dos rompió algo.
+- **`config-proyecto-controller.js` las RE-EXPORTA.** `test/bloque3.mjs` las
+  importa desde ahí y no es archivo de este bloque. La mudanza no le costó una
+  línea a la prueba de un bloque ya cerrado. Sigue dando 15/15.
+- **Las horas llevan dos decimales SIEMPRE**, la moneda los suprime en cero. En
+  una columna de horas, `147` y `147,00` alineados se leen como precisiones
+  distintas, y acá todas tienen la misma.
+- **`formatearPorcentaje` NO adivina la escala.** `ResultadoBono.indicador` es
+  fracción (0.3555); multiplicar por 100 es de quien pinta y queda a la vista en
+  la llamada. Si adivinara, un día pintaría 0,36 % donde van 35,55 %.
+- **Un no-finito se pinta `—`, nunca `0`.** Un cero acá es una cifra falsa con
+  cara de cifra buena.
+- **`formatearFecha` parsea `YYYY-MM-DD` por componentes**, no con
+  `new Date(cadena)`: eso es medianoche UTC y en Costa Rica (UTC−6) da el día
+  anterior. Un día de corrimiento vale ₡250 000 (D-05).
+- **Acá NO hay aritmética de fechas.** Se leen componentes y se pintan; sumar,
+  restar y comparar sigue siendo exclusivo de `calculoMeta.js`. Principio 8
+  intacto.
+- Formato costarricense: separador de miles **espacio duro** (U+00A0), decimal
+  **coma**, negativo con el **menos tipográfico** (U+2212), no el guion.
+
+### `public/js/sidebar.js` — deuda 6 pagada
+
+Dos entradas nuevas en el grupo **Gestión**, ambas solo del `ingeniero`. El menú
+del `supervisor` no cambió.
+
+```
+Proyectos · 🎯 Metas · Tareas · Colaboradores · ⚙️ Configuración
+```
+
+`Configuración` se llegaba solo por URL escrita a mano desde el bloque 3.
+
+### `public/supervisor/metas.html` + `metas-controller.js`
+
+Lista de metas por proyecto. `protegerPagina([ROL_INGENIERO], …)`. Mismo patrón
+de dos mitades del bloque 3: arriba funciones puras, abajo el arranque del
+navegador con imports diferidos.
+
+```js
+ESTADO_META        // mapa estado → { etiqueta, clase }  congelado
+pintarEstado(estado)   // → { etiqueta, clase }  un estado desconocido se pinta tal cual
+textoBono(totales)     // → { texto, detalle, calculado }
+filaDeMeta(meta)       // → objeto de fila, ya en texto. Sin DOM.
+```
+
+**Invariantes que no se rompen:**
+
+- **Es solo lectura.** No crea metas, no escribe `totales`, no recalcula nada.
+  Crear metas es un formulario entero (fechas, `bonoBase`, `hhPlanilla`,
+  `siguienteNumero()`) y se come el bloque; `totales` lo escribe el detalle del
+  4b, que es donde el cálculo ya está en pantalla. Una lista que escribe
+  mientras la mirás es una lista en la que no se puede confiar.
+- **`totales: null` se pinta `—` con la leyenda "sin calcular", nunca ₡0.**
+  Ese es hoy el caso de TODAS las metas, incluida la del fixture. Un cero acá
+  diría "esta meta no generó bono" cuando lo que pasa es que nadie lo calculó.
+  Al pie de la tabla se explica que la cifra es el mapa guardado, no un cálculo
+  en vivo, y que el detalle manda.
+- **Se leen las clases `badge-*` de `css/styles.css`, no se redefinen.** Ese
+  archivo es de otro bloque y no se toca. El mapeo no calza uno a uno con los
+  estados y está bien: `evaluada → badge-progreso`, `cerrada → badge-terminada`.
+  El día que `styles.css` se abra por otra razón, se les da nombre propio.
+- **Una entrega posterior al límite se marca `tarde` en la lista.** Por D-05 esa
+  meta pierde el bono base completo; enterarse al abrir el detalle es tarde.
+- **`fechaEntrega: null` se pinta "sin entregar", no `—`.** No es un dato que
+  falte: es una meta que aún no se ha entregado. Son cosas distintas y la
+  pantalla las distingue.
+- **La URL es la memoria, no `localStorage`.** `metas.html?proyecto=<id>` con
+  `history.replaceState`, igual que el bloque 3; un id que no esté en la lista
+  se ignora en silencio. Con **un solo** proyecto activo se abre solo — elegir
+  entre uno no es una decisión. Con dos o más se pregunta: un proyecto recordado
+  en silencio es el que se abre creyendo que se está mirando otro.
+- **Guarda contra carrera:** si se cambió de proyecto mientras la consulta
+  respondía, lo que llegó se descarta. Sin eso, dos clics rápidos pintan las
+  metas del proyecto anterior bajo el nombre del nuevo.
+- **Todo lo que viene de Firestore se escapa** con `textContent` antes de entrar
+  al `innerHTML`.
+- **No hay enlace al detalle todavía.** `meta-detalle.html` es del 4b; un enlace
+  muerto es peor que ningún enlace. Entra con esa pantalla.
+
+**Verificación:**
+
+- `test/formato.mjs` — 22 casos en Node, sin red (22/22). Cubre los dos totales
+  de aceptación (2 697,10 / 1 092,25), ₡498 480, el corrimiento de zona horaria
+  y las tres fechas del fixture.
+- `test/bloque3.mjs` — **15/15 después de la mudanza**, sin tocarle una línea.
+  Era el criterio que decidía si la deuda 5 estaba bien pagada.
+- Checklist visual de la lista, con la Meta 1 del fixture (`Evaluada`, planilla
+  704,00 HH, bono `—`), una `Abierta` sin entregar y una `Cerrada` entregada
+  tarde con su bono calculado.
+
+### Deuda declarada — no es olvido
+
+8. **Los tres estilos de tabla de la app siguen sin unificarse.**
+   `metas.html` define los suyos localmente, igual que hizo el bloque 3, porque
+   `css/styles.css` es de otro bloque. Cuando el 4b abra la tabla de hitos habrá
+   dos pantallas con tablas casi iguales: ese es el momento de subirlas a
+   `styles.css` de una vez, no antes.
+9. **La lista no dice si una meta tiene avances propuestos sin aprobar** (D-11).
+   Es el contrapeso del modelo y hoy solo se ve entrando al detalle. Necesita un
+   contador que hoy no existe en ningún lado: contarlo exige leer los hitos de
+   cada meta, que es justo lo que esta pantalla evita. Candidato natural: que el
+   4b lo escriba dentro de `totales` cuando guarde.
+10. **`supervisorIds` sigue pendiente** (deuda 2 y 7, arrastrada desde el bloque
+    2). Mientras siga abierta, el supervisor ve todos los proyectos. Sigue
+    necesitando bloque propio con su deploy de reglas.
+
+### Deudas cerradas en este bloque
+
+- **Deuda 5 — `formato.js` no existía.** Cerrada.
+- **Deuda 6 — Configuración sin entrada de menú.** Cerrada.

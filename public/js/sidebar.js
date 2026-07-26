@@ -23,8 +23,12 @@ const NAV_POR_ROL = {
       grupo: 'Gestión',
       items: [
         { label: 'Proyectos', icono: '🏗️', href: '/supervisor/dashboard.html#seccion-proyectos' },
+        // Bloque 4a — deuda 6 pagada. Metas y Configuración se llegaban solo
+        // por URL escrita a mano; ahora tienen entrada propia.
+        { label: 'Metas', icono: '🎯', href: '/supervisor/metas.html' },
         { label: 'Tareas', icono: '📋', href: '/supervisor/dashboard.html#seccion-tareas' },
-        { label: 'Colaboradores', icono: '👷', href: '/supervisor/gestionar-empleados.html' }
+        { label: 'Colaboradores', icono: '👷', href: '/supervisor/gestionar-empleados.html' },
+        { label: 'Configuración', icono: '⚙️', href: '/supervisor/config-proyecto.html' }
       ]
     },
     {
