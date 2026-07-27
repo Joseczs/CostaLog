@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resumen del bono – COSTACON</title>
+<link rel="stylesheet" href="/css/styles.css">
+<style>
+  .grid-resumen { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  @media (min-width: 900px) { .grid-resumen { grid-template-columns: 1.35fr 1fr; align-items: start; } }
+
+  /* ── La cascada. El orden del Excel, columna de montos alineada. ── */
+  .tabla-cascada { width: 100%; border-collapse: collapse; }
+  .tabla-cascada td { padding: 12px 10px; border-bottom: 1px solid #eef2f5; vertical-align: top; }
+  .tabla-cascada .etiqueta { font-size: 14px; color: var(--gris-texto); }
+  .tabla-cascada .nota { font-size: 11px; color: #9aa7b3; margin-top: 3px; line-height: 1.5; }
+  .tabla-cascada .monto {
+    text-align: right; white-space: nowrap; font-size: 15px;
+    font-weight: 600; color: var(--azul-oscuro); width: 38%;
+  }
+  .fila-total td { background: #F4F8FB; border-top: 2px solid var(--gris-borde); }
+  .fila-total .etiqueta, .fila-total .monto { font-weight: 700; color: var(--azul-oscuro); }
+  .fila-factor td { background: #FFFCF5; }
+  .fila-factor .monto { color: #8a5a00; }
+  .fila-reparto td { border-bottom: none; }
+  .fila-reparto .monto { font-size: 21px; font-weight: 700; }
+  .fila-reparto:last-child td { border-top: 1px solid var(--gris-borde); }
+  .con-alerta .nota { color: #A32D2D; font-weight: 600; }
+
+  /* ── Las dos cifras (D-5-02) ─────────────────────────────────────── */
+  .panel-dos-cifras {
+    background: var(--azul-oscuro); color: #fff; border-radius: 10px; padding: 16px;
+  }
+  .panel-dos-cifras .fila { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .panel-dos-cifras .etiq { font-size: 11px; opacity: .75; text-transform: uppercase; letter-spacing: .5px; }
+  .panel-dos-cifras .grande { font-size: 27px; font-weight: 700; }
+  .panel-dos-cifras .mediana { font-size: 18px; font-weight: 600; opacity: .9; }
+  .panel-dos-cifras hr { border: none; border-top: 1px solid rgba(255,255,255,.18); margin: 11px 0; }
+  .diferencia { font-size: 12.5px; margin-top: 8px; }
+  .diferencia.hay { color: #9BE3C4; font-weight: 600; }
+  .diferencia.cero { opacity: .6; }
+  .procedencia { font-size: 11px; opacity: .65; margin-top: 8px; line-height: 1.5; }
+
+  .lista-horas { list-style: none; padding: 0; margin: 0; }
+  .lista-horas li {
+    display: flex; justify-content: space-between; gap: 12px;
+    padding: 9px 0; border-bottom: 1px solid #eef2f5; font-size: 13px;
+  }
+  .lista-horas li:last-child { border-bottom: none; }
+  .lista-horas strong { color: var(--azul-oscuro); white-space: nowrap; }
+
+  .tira-datos { display: flex; flex-wrap: wrap; gap: 22px; font-size: 13px; margin-top: 6px; }
+  .tira-datos .etiqueta {
+    display: block; font-size: 10px; text-transform: uppercase;
+    letter-spacing: .5px; color: #8794a1; margin-bottom: 3px;
+  }
+  .tira-datos .valor { color: var(--azul-oscuro); font-weight: 600; }
+  .chequeo {
+    background: #FDECEC; border: 1px solid #F5C2C2; color: #A32D2D;
+    padding: 10px 12px; border-radius: 6px; font-size: 13px; margin-bottom: 12px;
+  }
+  .nota-pie { font-size: 11px; color: #8794a1; margin-top: 12px; line-height: 1.6; }
+  select { min-height: 42px; font-size: 14px; }
+</style>
+</head>
+<body>
+
+  <header class="app-header">
+    <h1>COSTACON – Resumen del bono</h1>
+    <div class="user-info">
+      <span id="nombre-usuario"></span>
+      <button class="btn-logout" id="btn-logout">Salir</button>
+    </div>
+  </header>
+
+  <div class="app-container">
+
+    <div id="avisos"></div>
+
+    <div class="card">
+      <div style="display:flex; gap:12px; flex-wrap:wrap;">
+        <select id="selector-proyecto" style="flex:1; min-width:220px;" aria-label="Proyecto">
+          <option value="">Elegí el proyecto…</option>
+        </select>
+        <select id="selector-meta" style="flex:1; min-width:220px;" aria-label="Meta">
+          <option value="">Elegí la meta…</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="seccion-resumen" style="display:none;">
+
+      <div class="card">
+        <h2 id="titulo-meta">Meta</h2>
+        <div class="tira-datos">
+          <div><span class="etiqueta">Estado</span><span class="valor" id="estado-meta">—</span></div>
+          <div><span class="etiqueta">Fecha límite</span><span class="valor" id="fecha-limite">—</span></div>
+          <div><span class="etiqueta">Entrega</span><span class="valor" id="fecha-entrega">—</span></div>
+          <div><span class="etiqueta">Reglas usadas</span><span class="valor" id="origen-reglas">—</span></div>
+        </div>
+      </div>
+
+      <div class="chequeo" id="chequeo" style="display:none;"></div>
+
+      <div class="grid-resumen">
+
+        <div class="card">
+          <h2>Cómo se llega al monto</h2>
+          <table class="tabla-cascada">
+            <tbody id="cascada"></tbody>
+          </table>
+          <p class="nota-pie">
+            Es el mismo orden de la hoja del Excel, renglón por renglón, para que se
+            pueda auditar de un vistazo contra el libro. El <strong>factor de calidad</strong>
+            va acá dentro y no en otra pestaña: multiplica el reparto, no el bruto, y es
+            el freno que evita que se corra sacrificando limpieza y seguridad.
+          </p>
+        </div>
+
+        <div>
+          <div class="panel-dos-cifras">
+            <div class="fila">
+              <span class="etiq">Maestro de Obras, aprobado</span>
+              <span class="grande" id="cifra-aprobada">—</span>
+            </div>
+            <hr>
+            <div class="fila">
+              <span class="etiq">Con las propuestas pendientes</span>
+              <span class="mediana" id="cifra-propuesta">—</span>
+            </div>
+            <div class="diferencia cero" id="cifra-diferencia">—</div>
+            <p class="procedencia" id="procedencia">—</p>
+          </div>
+
+          <div class="card" style="margin-top:14px;">
+            <h2>Las horas detrás del monto</h2>
+            <ul class="lista-horas" id="lista-horas"></ul>
+            <p class="nota-pie">
+              La hora es la moneda: los colones de la izquierda salen de estas horas.
+              Los misceláneos son una bolsa automática por día transcurrido y no
+              existen como documento — los genera el motor.
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <p class="nota-pie">
+        Esta pantalla es de <strong>solo lectura</strong> para los dos roles. Los avances se
+        editan en el detalle de la meta; capturar la planilla y cerrar la meta son
+        acciones de otras pantallas. Acá no se escribe nada.
+      </p>
+    </div>
+
+  </div>
+
+  <script type="module" src="/supervisor/bono-resumen.js"></script>
+</body>
+</html>

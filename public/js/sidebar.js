@@ -26,6 +26,8 @@ const NAV_POR_ROL = {
         // Bloque 4a — deuda 6 pagada. Metas y Configuración se llegaban solo
         // por URL escrita a mano; ahora tienen entrada propia.
         { label: 'Metas', icono: '🎯', href: '/supervisor/metas.html' },
+        // Bloque 5 — la misma pantalla para los dos roles (D-5-01).
+        { label: 'Resumen de bono', icono: '💰', href: '/supervisor/bono-resumen.html' },
         { label: 'Tareas', icono: '📋', href: '/supervisor/dashboard.html#seccion-tareas' },
         { label: 'Colaboradores', icono: '👷', href: '/supervisor/gestionar-empleados.html' },
         { label: 'Configuración', icono: '⚙️', href: '/supervisor/config-proyecto.html' }
@@ -46,6 +48,10 @@ const NAV_POR_ROL = {
         // Bloque 4c — la mitad de PROPONER de D-11. Primero de la lista a
         // propósito: es la única entrada de datos reales del sistema.
         { label: 'Reportar avance', icono: '📈', href: '/jefe/avance.html' },
+        // Mismo archivo que ve el ingeniero: mismos numeros, misma cascada.
+        // La carpeta /supervisor/ no es una frontera de permisos — el guardia
+        // es protegerPagina, y esa pantalla admite los dos roles.
+        { label: 'Resumen de bono', icono: '💰', href: '/supervisor/bono-resumen.html' },
         { label: 'Mi equipo', icono: '👷', href: '/jefe/mi-cuadrilla.html' }
       ]
     }

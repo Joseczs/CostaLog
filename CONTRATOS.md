@@ -20,7 +20,7 @@ desactualizado es peor que no tenerlo.
 | 4a | Fundaciones + lista de metas | ✅ hecho | 22/22 + 15/15 + checklist visual |
 | 4b | Detalle de meta e hitos | ✅ hecho | 24/24 + checklist visual |
 | 4c | Propuesta de avance (móvil) | ✅ hecho | 19/19 + checklist visual |
-| 5 | Resumen y proyección de bono | ⬜ | — |
+| 5 | Resumen y proyección de bono | ✅ hecho | 18/18 + checklist visual |
 | 6 | Extras, créditos y evaluaciones | ⬜ | — |
 | 7 | Tareas BP + migración de pesos | ⬜ | — |
 | 8 | Pagos y exportación Excel | ⬜ | — |
@@ -1068,3 +1068,87 @@ el código, primero se verifica la especificación.
   `firebase-config.js`, que es de otro bloque. Candidato a bloque propio corto.
 - **3 — los directorios siguen invertidos.** Esta pantalla vive en `/jefe/`, que
   es del supervisor. Correcto según el contrato, confuso al leerlo.
+
+---
+
+## Bloque 5 — resumen y proyección de bono ✅
+
+```
+public/supervisor/bono-resumen.html   ← nuevo
+public/supervisor/bono-resumen.js     ← nuevo
+public/js/sidebar.js                  ← EXCEPCIÓN, una entrada en CADA menú
+test/bloque5.mjs                      ← nuevo, fuera del deploy y del conteo
+```
+
+Tres archivos. Sin deploy de reglas: solo lee.
+
+### Decisiones cerradas
+
+| # | Decisión | Resolución |
+|---|---|---|
+| D-5-01 | ¿Quién ve el resumen? | **Los dos roles**, con la misma cascada y los mismos números. El Maestro de Obras ya veía su monto en el teléfono, pero sin explicación: *"se lo dicen, no lo verifica"*. Una pantalla que muestra el monto y esconde de dónde sale es el Excel otra vez, en digital. |
+| D-5-02 | ¿Una cifra o dos? | **Dos**: la cascada con los avances aprobados y, al lado, el total con las propuestas pendientes. Nunca solo la segunda. |
+| D-5-03 | ¿Dónde va el factor de calidad? | **Dentro de la cascada**, en su renglón, no en una tarjeta aparte. Es el freno del sistema; en el Excel está en la misma columna. |
+| D-5-04 | ¿Se edita algo? | **Nada.** Ni siquiera `totales`. Los avances son del 4b; la planilla y el cierre, de otros bloques. |
+
+**Sobre la carpeta:** el archivo vive en `/supervisor/` y lo abren los dos roles.
+No es contradicción: la carpeta **no es una frontera de permisos** —el guardia es
+`protegerPagina`, y esta pantalla admite ambos—. Es la deuda 3 mostrando su
+incomodidad otra vez.
+
+### `bono-resumen.js`
+
+```js
+filasCascada(resultado, reglas)   // → 7 renglones en el orden del Excel
+verificarCascada(resultado, reglas, tolerancia = 0.01)  // → { ok, errores }
+comparativa(rAprobado, rPropuesto)                      // → las dos cifras
+filasHoras(resultado)                                   // → las 6 líneas de HH
+```
+
+**Invariantes que no se rompen:**
+
+- **El orden es el del libro**, sin saltarse renglones:
+  `base → anticipada → productividad → bruto → factor → ING → MO`. Tiene prueba
+  que compara el arreglo de claves completo: si alguien reordena, falla.
+- **Cada renglón explica de dónde sale**, no solo cuánto vale. Hay una prueba que
+  recorre los siete y exige que ninguno venga con la nota vacía. Un monto sin su
+  fórmula al lado es lo que hacía el Excel.
+- **El piso de D-01 no se aplica en silencio.** Si hubo déficit, el renglón dice
+  cuántas horas faltaron aunque el monto sea ₡0.
+- **El bono base perdido dice POR QUÉ vale ₡0** (D-05), no solo que vale ₡0.
+- **El factor 1.00 se explica** ("sin evaluaciones: se paga completo, sin
+  castigo") en vez de aparecer como un multiplicador mudo.
+- **La pantalla se audita a sí misma.** `verificarCascada` comprueba que el bruto
+  sea la suma de sus componentes, que los dos repartos cuadren con el bruto por
+  el factor, y que `pctBonoMO + pctBonoING` no pase de 100. Si algo no cierra,
+  sale una franja roja arriba. No es paranoia: si el motor cambiara y el bruto
+  dejara de cuadrar, esta pantalla lo seguiría pintando como si nada hasta que
+  alguien cuadrara a mano contra el Excel — es decir, pagando.
+- **`textoProcedencia` se IMPORTA del bloque 4b, no se copia.** Importar no es
+  modificar. Duplicar ese texto garantizaría que un día las dos pantallas digan
+  cosas distintas del mismo dato. El import es seguro porque la mitad de
+  navegador de ese archivo solo arranca si existe `#tabla-hitos`, que acá no
+  existe.
+- **D-10 respetado:** si la meta tiene `reglasSnapshot`, la cascada calcula con
+  el snapshot, y la cabecera dice cuál de las dos fuentes se usó.
+
+### Verificación
+
+- `test/bloque5.mjs` — **18/18** en Node, sin red. Incluye el criterio del plan:
+  **₡498 480** para el Maestro de Obras y **₡0** para el Ingeniero con el fixture,
+  y que la proyección se mueve al cambiar un avance. Tres pruebas rompen la
+  cascada a propósito para confirmar que `verificarCascada` las atrapa.
+- Las otras cuatro suites intactas: 22/22, 15/15, 24/24, 19/19.
+- Checklist visual: cascada de siete renglones con el factor adentro, panel de
+  las dos cifras y la lista de horas.
+
+### Deuda
+
+- **14 — el resumen no se enlaza desde la meta.** Se llega por menú y se eligen
+  proyecto y meta a mano. Enlazarlo desde `meta-detalle.html` o desde la lista
+  exigía tocar archivos del 4a/4b y el bloque ya usaba su excepción en
+  `sidebar.js`. Entra con el bloque de unificación de tablas (deuda 8), que ya
+  va a tocar esas dos pantallas.
+- **15 — el supervisor ve el resumen de CUALQUIER meta de CUALQUIER proyecto,**
+  incluido el bono de metas que no son suyas. Es la deuda 2 otra vez, ahora
+  sobre plata ajena y no solo sobre una lista larga. Sube de prioridad.
