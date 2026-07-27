@@ -1,6 +1,7 @@
 import { ROL_SUPERVISOR } from '../js/roles.js';
 import { protegerPagina, cerrarSesion } from '../js/auth.js';
 import { db, collection, getDocs, query, where } from '../js/firebase-config.js';
+import { crearProyectosRepo } from '../js/repos/proyectosRepo.js';
 import { renderSidebar } from '../js/sidebar.js';
 
 protegerPagina([ROL_SUPERVISOR], (perfil) => {
@@ -15,27 +16,51 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
 });
 
 // Iteramos los proyectos existentes y, dentro de cada uno, buscamos las
-// tareas asignadas a este Jefe. Usamos consultas de colección normales
-// (no collectionGroup) para evitar el error "Missing or insufficient
-// permissions" y para excluir tareas huérfanas de proyectos borrados.
+// tareas asignadas a este Maestro de Obras. Usamos consultas de colección
+// normales (no collectionGroup) para evitar el error "Missing or
+// insufficient permissions" y para excluir tareas huérfanas de proyectos
+// borrados.
+//
+// ── Corrección del bloque 5b (26.07.2026) ────────────────────────────
+// Esta pantalla leía `collection(db, 'proyectos')` DIRECTO, saltándose el
+// repositorio. Con el alcance del 5b eso dejó de funcionar: es una
+// consulta sin filtro hecha por un Maestro de Obras, y Firestore no
+// devuelve menos documentos cuando las reglas no alcanzan — falla la
+// consulta ENTERA. El síntoma era "Missing or insufficient permissions"
+// en una pantalla que nadie había tocado.
+//
+// El repositorio arma la consulta con `array-contains` y por eso pasa. La
+// lección va más allá de este archivo: **saltarse la capa de datos no es
+// un atajo, es un archivo que no se entera de los cambios de contrato.**
+// Los otros consumidores directos que quedan son todos del ingeniero, a
+// quien las reglas no le restringen nada — pero son deuda igual.
 async function cargarMisTareas(jefeUid) {
   const tbody = document.getElementById('tbody-tareas');
   const emptyState = document.getElementById('empty-state');
 
   try {
-    const proyectosSnap = await getDocs(collection(db, 'proyectos'));
+    const proyectosRepo = crearProyectosRepo(db);
+    const proyectos = await proyectosRepo.listar({ soloDe: jefeUid });
     const misTareas = [];
 
-    await Promise.all(proyectosSnap.docs.map(async (proyDoc) => {
+    await Promise.all(proyectos.map(async (proy) => {
       const q = query(
-        collection(db, 'proyectos', proyDoc.id, 'tareas'),
+        collection(db, 'proyectos', proy.id, 'tareas'),
         where('jefeCuadrillaId', '==', jefeUid)
       );
       const tareasSnap = await getDocs(q);
       tareasSnap.forEach(docSnap => {
         const t = docSnap.data();
         if (t.activo === false) return; // tarea eliminada (soft-delete): ocultar
-        misTareas.push({ id: docSnap.id, proyectoId: proyDoc.id, ...t });
+        // El nombre del proyecto sale del repo si la tarea no lo trae:
+        // antes dependía de que estuviera denormalizado en la tarea y
+        // pintaba '—' cuando no lo estaba.
+        misTareas.push({
+          id: docSnap.id,
+          proyectoId: proy.id,
+          proyectoNombre: t.proyectoNombre ?? proy.nombre,
+          ...t,
+        });
       });
     }));
 
