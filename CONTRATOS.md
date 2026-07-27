@@ -21,6 +21,9 @@ desactualizado es peor que no tenerlo.
 | 4b | Detalle de meta e hitos | ✅ hecho | 24/24 + checklist visual |
 | 4c | Propuesta de avance (móvil) | ✅ hecho | 19/19 + checklist visual |
 | 5 | Resumen y proyección de bono | ✅ hecho | 18/18 + checklist visual |
+| 5b | Alcance por supervisor (supervisorIds) | ✅ hecho | 16/16 + verificación en producción |
+| 5b-2 | Pantalla de asignación de supervisores | ⬜ | — |
+| 5c | Renombrado de directorios | ⬜ | después del 5b |
 | 6 | Extras, créditos y evaluaciones | ⬜ | — |
 | 7 | Tareas BP + migración de pesos | ⬜ | — |
 | 8 | Pagos y exportación Excel | ⬜ | — |
@@ -1152,3 +1155,252 @@ filasHoras(resultado)                                   // → las 6 líneas de 
 - **15 — el supervisor ve el resumen de CUALQUIER meta de CUALQUIER proyecto,**
   incluido el bono de metas que no son suyas. Es la deuda 2 otra vez, ahora
   sobre plata ajena y no solo sobre una lista larga. Sube de prioridad.
+
+---
+
+## Bloque 5b — alcance por supervisor ⬜ · PRIORIDAD
+
+**Se adelanta al bloque 6 por decisión explícita del 26.07.2026.** Es la deuda 2,
+abierta desde el bloque 2, que fue creciendo con cada pantalla:
+
+| Bloque | Cómo se manifestaba | Gravedad |
+|---|---|---|
+| 2 | el supervisor lee todos los proyectos | teórica: no había pantallas |
+| 4a | ve la lista de metas de cualquier proyecto | molesta |
+| 4c | selector largo, en un teléfono, en obra | **puede reportar sobre el proyecto equivocado** |
+| 5 | ve la cascada de bono de metas que no son suyas | **ve plata ajena** |
+
+**La asimetría es deliberada y así se implementa:** el `ingeniero` ve todo y debe
+verlo —define el alcance de todos los frentes—. El `supervisor` ve solo lo suyo.
+No es una regla simétrica de privacidad: es que el bono de otro Maestro de Obras
+no es asunto suyo.
+
+### Alcance previsto
+
+```
+firestore.rules                       ← el guardia de verdad
+public/js/repos/proyectosRepo.js      ← listar() filtra por rol
+public/supervisor/dashboard-controller.js  ← asignar supervisores al proyecto
+scripts/migrar-supervisor-ids.js      ← rellenar los proyectos existentes
+```
+
+### Decisiones a cerrar ANTES de escribir código
+
+1. **Forma del campo.** `supervisorIds: string[]` en el documento del proyecto —
+   arreglo, no campo único: la §6.2 dice que un supervisor puede tener varios
+   frentes, y nada impide que un frente tenga dos supervisores.
+2. **Qué hacer con los proyectos que no tengan el campo.** Es la decisión de
+   fondo. "Ausente = lo ve todo el mundo" repite el problema y no cierra nada;
+   "ausente = no lo ve nadie" deja al supervisor sin pantallas hasta que migre.
+   La migración es obligatoria en cualquier caso, y el script tiene que correr
+   **antes** del deploy de reglas, no después.
+3. **Si la regla filtra la lectura o solo la lista.** Firestore no filtra
+   documentos dentro de una consulta de colección: o la consulta pasa entera o
+   falla entera. Con `allow read` por documento, `listar()` **falla completa** en
+   vez de devolver menos. Probablemente haya que leer por ids conocidos, y eso
+   cambia la firma de `proyectosRepo.listar()` — que es contrato del bloque 1.
+4. **Dónde se asignan los supervisores.** El dashboard del ingeniero es lo
+   natural, pero es archivo de otro bloque.
+
+⚠️ **Este bloque SÍ lleva `firebase deploy --only firestore`, y va antes de la
+UI que depende de él.** Es el segundo bloque que toca reglas después del 2.
+
+---
+
+## Bloque 5c — renombrado de directorios ⬜
+
+La deuda 3, que ya cobró factura una vez: en el bloque 4c los archivos se
+subieron a `/supervisor/` en vez de `/jefe/` y la pantalla daba 404 → login, un
+síntoma que parecía cierre de sesión.
+
+**Estado actual, invertido:**
+
+```
+/supervisor/*  →  lo usa el INGENIERO
+/jefe/*        →  lo usa el SUPERVISOR (Maestro de Obras)
+```
+
+**Destino:** `/ingeniero/*` y `/maestro/*`. Nombres que dicen lo que son, en el
+vocabulario del dominio y no en el del modelo viejo de tres roles.
+
+### Medición hecha, no estimada
+
+**49 ocurrencias de las rutas en 19 archivos.** Los dos archivos que concentran
+el riesgo son `js/roles.js` (`HOME_POR_ROL`) y `js/sidebar.js` (todo el menú); el
+resto son enlaces sueltos entre pantallas.
+
+### Por qué va DESPUÉS del 5b, y no antes
+
+El 5b toca reglas y datos; el 5c toca solo rutas. Si se hacen juntos y algo
+falla, no se sabe cuál de los dos lo rompió. Y el 5b protege plata, así que va
+primero.
+
+### Riesgos, ya identificados
+
+1. **`git mv` de directorio completo en Windows**, con el antecedente de la
+   historia paralela. Se hace con `git mv`, nunca por el explorador, y se
+   verifica con `git ls-files` antes de commitear.
+2. **Enlaces viejos guardados** en marcadores o pegados en WhatsApp quedan
+   muertos. Se resuelve con dos redirects en `netlify.toml` —`/supervisor/*` →
+   `/ingeniero/:splat` y `/jefe/*` → `/maestro/:splat`— **antes** de que las
+   rutas nuevas existan.
+3. **`bono-resumen.html` lo abren los dos roles** y vive en `/supervisor/`. Con
+   los nombres nuevos, `/ingeniero/bono-resumen.html` abierto por un Maestro de
+   Obras se vería mal aunque funcione bien. Decisión a cerrar: o se mueve a un
+   tercer directorio `/comun/`, o se acepta que la carpeta no es frontera de
+   permisos y se documenta.
+4. **El campo `jefeCuadrillaId` de `tareas` conserva su nombre.** Renombrarlo es
+   migración de datos, no de rutas, y pertenece al bloque 7. No se mezcla acá.
+
+### Prueba de aceptación
+
+Cero ocurrencias de `/supervisor/` y `/jefe/` fuera de `netlify.toml`, las cinco
+suites siguen pasando, y las dos cuentas navegan el menú completo sin un solo
+404.
+
+---
+
+## Bloque 5b — alcance por supervisor ✅
+
+```
+firestore.rules                          ← ⚠️ fragmento, ver abajo
+public/js/repos/proyectosRepo.js         ← EXCEPCIÓN declarada (bloque 1)
+public/jefe/avance-controller.js         ← EXCEPCIÓN declarada (bloque 4c)
+public/supervisor/bono-resumen.js        ← EXCEPCIÓN declarada (bloque 5)
+scripts/migrar-supervisor-ids.js         ← nuevo
+test/bloque5b.mjs                        ← nuevo, fuera del deploy y del conteo
+```
+
+Cinco archivos, tres de ellos de otros bloques. Es el radio real del cambio y
+está declarado: el alcance no se puede compartimentalizar más, igual que los
+roles del bloque 2. Toca el repositorio, sus dos consumidores del lado del
+supervisor, y las reglas.
+
+### Las cuatro decisiones, cerradas
+
+**1 · Forma del campo — `supervisorIds: string[]`.** Arreglo, no campo único: la
+§6.2 dice que un supervisor puede tener varios frentes, y nada impide que un
+frente tenga dos supervisores. Las dos direcciones tienen prueba.
+
+**2 · Proyectos sin el campo — FAIL-CLOSED: no los ve ningún supervisor.**
+
+Es una **divergencia consciente con el principio 4** ("activo por omisión"). Ese
+principio existe porque un campo `activo` ausente escondería media base: el
+riesgo era ocultar de más. Acá el riesgo es exactamente el contrario — un campo
+ausente que **da acceso a plata ajena**. Un supervisor que no ve un proyecto se
+queja el mismo día; uno que ve el bono de otro no se queja nunca.
+
+La migración es obligatoria y **corre ANTES del deploy de reglas**, no después.
+El script rellena con arreglo vacío, no con todos los supervisores: que falte
+asignar un proyecto tiene que notarse, no resolverse solo.
+
+**3 · ¿La regla filtra la lectura o la lista? — Hace falta un `where` en el
+cliente, y no es cosmético.**
+
+Firestore **no filtra los documentos de una consulta según las reglas.** Evalúa
+si la consulta completa es segura; si un solo documento no pasara, falla entera.
+Una consulta sin filtro hecha por un supervisor no devolvería menos proyectos:
+devolvería `Missing or insufficient permissions`. Por eso `listar()` cambia de
+firma y el cliente filtra con `array-contains`.
+
+**Esto amplía el principio 2, y la ampliación es la correcta:** lo prohibido son
+los **índices compuestos**, y la forma de evitarlos era no llevar `where` ni
+`orderBy`. Un `array-contains` solo usa el índice de un campo, que Firestore crea
+automáticamente. El orden sigue haciéndose en memoria — agregarle un `orderBy` sí
+pediría índice compuesto. La consulta pasa a tener `where`; sigue sin haber ni un
+índice compuesto en toda la base.
+
+**4 · Dónde se asignan — por script en el 5b, por pantalla en el 5b-2.** Meter la
+pantalla acá daba seis archivos, y el máximo son cinco. El corte es además el
+correcto: **5b es el guardia, 5b-2 es la herramienta.** Aislar el deploy de
+reglas en un bloque que no trae UI nueva es exactamente lo que se quiere cuando
+se tocan permisos.
+
+### `proyectosRepo.js` — firma nueva
+
+```js
+listar({ soloDe = null })              // soloDe = uid ⇒ solo sus proyectos
+asignarSupervisores(proyectoId, uids)  // arreglo COMPLETO, nunca arrayUnion
+crear(datos)                           // nace con supervisorIds: []
+```
+
+`listar()` sin argumentos sigue funcionando y devuelve todo: es lo que
+corresponde al ingeniero, y por eso `metas-controller.js` y
+`config-proyecto-controller.js` —los dos ingeniero-only— **no se tocaron**.
+
+`asignarSupervisores` escribe el arreglo entero, nunca `arrayUnion`/`arrayRemove`:
+la lista es una decisión sobre quién entra y quién sale, y una operación parcial
+dejaría estados que nadie decidió. Mismo criterio que `actualizarReglas`.
+
+### `firestore.rules` — archivo completo, nueve cambios quirúrgicos
+
+Se aplicaron sobre el archivo real, no sobre una reconstrucción: las reglas
+llegaron aparte después de que el `.rar` las trajera en 0 bytes. Cada cambio se
+verificó que calzara **exactamente una vez** antes de aplicarse; ninguno tocó
+nada fuera de su renglón.
+
+```
+182 líneas → 244.  Diff efectivo (sin comentarios):
+  + 3 funciones nuevas
+  ~ 8 allow read   : esUsuario() → puedeVerProyecto(proyectoId)
+  ~ 3 allow update : se les suma puedeVerProyecto(proyectoId)
+  ~ 1 allow read   : pagos, esUsuario() → esIngeniero()
+```
+
+Tres helpers nuevos: `estaEnLaLista(datos)`, `puedeVerEsteProyecto()` —para el
+documento del proyecto, donde `resource` ya es el proyecto— y
+`puedeVerProyecto(proyectoId)` —para las subcolecciones, que van a buscar el
+padre con `get()`—.
+
+El único `esUsuario()` que sobrevive es el `read` de
+`usuarios/{uid}/empleados/{id}`, y es correcto: el roster cuelga del usuario, no
+del proyecto, y cada supervisor ya escribe solo el suyo por `esElMismoUsuario`.
+
+**Las cinco subcolecciones cambian también.** Sin eso el guardia sería de
+interfaz: un supervisor con la URL de una meta ajena leería su bono igual. La
+función `puedeVerProyecto()` hace un `get()` sobre el proyecto padre — cuesta una
+lectura facturada por evaluación, y ese es el precio de que la protección sea
+real. Firestore cachea el `get()` dentro de una misma solicitud, así que leer 52
+hitos no son 52 lecturas extra.
+
+**Los `pagos` NO se abren al supervisor ni estando asignado.** El libro incluye el
+monto del Ingeniero y el de los trabajadores. Ver su propio bono es el bloque 5;
+ver el reparto completo de la obra es otra cosa.
+
+### Orden de despliegue — importa
+
+```
+1. node scripts/migrar-supervisor-ids.js --listar          ← ver los uid
+2. node scripts/migrar-supervisor-ids.js                   ← simulación
+3. node scripts/migrar-supervisor-ids.js --asignar <proyecto> <uid> --escribir
+4. node scripts/migrar-supervisor-ids.js --listar          ← verificar
+5. integrar el fragmento en firestore.rules
+6. firebase deploy --only firestore                        ← desde cmd
+7. git push                                                ← recién ahora la UI
+```
+
+Invertir 6 y 7 deja a los supervisores con una UI que pide un permiso que aún no
+existe. Invertir 3 y 6 los deja sin ningún proyecto visible.
+
+### Verificación
+
+- `test/bloque5b.mjs` — **16/16** en Node, sin red. Las reglas NO se prueban acá:
+  eso se verifica con dos cuentas en producción.
+- Las cinco suites anteriores intactas: 22, 15, 24, 19, 18.
+- **Checklist en producción, obligatorio:** con dos supervisores y dos proyectos,
+  cada uno ve solo el suyo; y `bono-resumen.html?proyecto=<ajeno>` escrito a mano
+  **falla por reglas**, no por interfaz. Ese segundo punto es el que prueba que el
+  guardia es del servidor.
+
+### Deuda
+
+- **2 — CERRADA.** El supervisor ya no ve todos los proyectos.
+- **15 — CERRADA.** Ya no ve el bono de metas ajenas.
+- **16 — la asignación es por script.** Hasta el 5b-2, asignar un supervisor
+  exige `serviceAccountKey.json` y línea de comandos. Funciona para dos o tres
+  proyectos; no escala a una obra real.
+- **1 — sigue abierta y ahora es lo más grave que queda.** El registro público no
+  valida el campo `rol`: cualquier cuenta autenticada puede crearse como
+  `ingeniero` desde la consola del navegador y saltarse **todo** lo de este
+  bloque. El 5b cierra el alcance entre roles legítimos; no cierra la puerta de
+  entrada. **Candidata a ser el próximo bloque, antes del 6.**

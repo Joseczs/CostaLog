@@ -9,6 +9,8 @@ import {
   addDoc,
   updateDoc,
   serverTimestamp,
+  query,
+  where,
 } from '../firebase-config.js';
 
 // ── Helpers internos ────────────────────────────────────────────────────────
@@ -45,13 +47,55 @@ export function crearProyectosRepo(db) {
   const col = () => collection(db, 'proyectos');
   const ref = (proyectoId) => doc(db, 'proyectos', exigir(proyectoId, 'proyectoId'));
 
-  /** @returns {Promise<Object[]>} activos, ordenados por nombre. */
-  async function listar() {
-    const snap = await getDocs(col());
+  /**
+   * @param {{ soloDe?: string|null }} [opciones] — `soloDe` es el uid de un
+   *        supervisor: devuelve solo los proyectos donde está asignado.
+   *        Sin él, devuelve todos (es lo que corresponde al ingeniero).
+   * @returns {Promise<Object[]>} activos, ordenados por nombre.
+   *
+   * ── Por qué acá SÍ hay un `where`, y por qué no rompe el principio 2
+   * ──────────────────────────────────────────────────────────────────
+   * El principio dice "cero índices compuestos", y la forma de cumplirlo era
+   * no llevar `where` ni `orderBy`. Pero lo que exige un índice compuesto es
+   * la COMBINACIÓN de los dos: un `array-contains` solo usa el índice de un
+   * campo, que Firestore crea automáticamente. Por eso el orden se sigue
+   * haciendo en memoria — agregarle un `orderBy` sí pediría índice compuesto.
+   *
+   * Y hace falta un `where`, no se puede evitar: Firestore NO filtra los
+   * documentos de una consulta según las reglas. Evalúa si la consulta
+   * COMPLETA es segura, y si un solo documento no pasara, falla entera. Una
+   * consulta sin filtro hecha por un supervisor no devolvería menos
+   * proyectos: devolvería "Missing or insufficient permissions". El filtro
+   * del cliente es lo que hace que la consulta sea demostrablemente segura;
+   * el guardia de verdad sigue siendo la regla del servidor.
+   */
+  async function listar({ soloDe = null } = {}) {
+    const consulta = soloDe
+      ? query(col(), where('supervisorIds', 'array-contains', soloDe))
+      : col();
+    const snap = await getDocs(consulta);
     return snap.docs
       .map(desdeSnap)
       .filter(esActivo)
       .sort((a, b) => (a.nombre ?? '').localeCompare(b.nombre ?? '', 'es'));
+  }
+
+  /**
+   * Reemplaza la lista completa de supervisores asignados al proyecto.
+   *
+   * Arreglo completo, nunca `arrayUnion`/`arrayRemove`: la lista es una
+   * decisión del ingeniero sobre quién entra y quién sale, y una operación
+   * atómica parcial dejaría estados que nadie decidió. Mismo criterio que
+   * `actualizarReglas` con el mapa de `reglasBono`.
+   */
+  async function asignarSupervisores(proyectoId, supervisorIds) {
+    if (!Array.isArray(supervisorIds)) {
+      throw new Error('proyectosRepo: supervisorIds tiene que ser un arreglo');
+    }
+    // Sin duplicados y sin vacíos: un uid repetido no da más permiso, pero
+    // sí ensucia cualquier conteo que se haga después sobre el arreglo.
+    const limpio = [...new Set(supervisorIds.filter(Boolean))];
+    await updateDoc(ref(proyectoId), { supervisorIds: limpio });
   }
 
   /** @returns {Promise<Object|null>} null si no existe o si está desactivado. */
@@ -66,6 +110,11 @@ export function crearProyectosRepo(db) {
   /** @returns {Promise<string>} id del proyecto creado. */
   async function crear(datos) {
     const nuevo = await addDoc(col(), {
+      // `supervisorIds` va ANTES del spread para que `datos` lo pueda
+      // sobrescribir si el llamador ya trae asignaciones. Pero nunca puede
+      // faltar: un proyecto sin el campo es invisible para todo supervisor,
+      // y eso tiene que ser una decisión, no un olvido del formulario.
+      supervisorIds: [],
       ...datos,
       activo: true,
       createdAt: serverTimestamp(),
@@ -91,5 +140,8 @@ export function crearProyectosRepo(db) {
     await updateDoc(ref(proyectoId), { activo: false });
   }
 
-  return { listar, obtener, crear, actualizar, actualizarReglas, desactivar };
+  return {
+    listar, obtener, crear, actualizar, actualizarReglas,
+    asignarSupervisores, desactivar,
+  };
 }

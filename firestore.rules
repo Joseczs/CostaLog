@@ -3,6 +3,7 @@ rules_version = '2';
 // ═══════════════════════════════════════════════════════════════════════
 // COSTACON — Reglas de seguridad Firestore
 // Bloque 2 — Dos roles: 'ingeniero' y 'supervisor'.  (D-03, D-04)
+// Bloque 5b — Alcance por supervisor: `supervisorIds` en el proyecto.
 //
 //   ingeniero  ≡ Ingeniero Residente.  Define el alcance y las reglas:
 //               proyectos, reglasBono, metas, hitos, evaluaciones, pagos,
@@ -61,6 +62,51 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos);
     }
 
+    // ── Alcance por supervisor (bloque 5b) ──────────────────────────────
+    //
+    // La asimetría es deliberada: el ingeniero ve TODO —define el alcance
+    // de todos los frentes—; el supervisor ve solo donde está asignado.
+    // No es una regla de privacidad simétrica: es que el bono de otro
+    // Maestro de Obras no es asunto suyo.
+
+    // La comprobación de la clave va PRIMERO y es deliberada. Un proyecto
+    // sin el campo hace que `in` lance error, y una regla que lanza error
+    // deniega — el resultado correcto, pero por accidente. Así queda
+    // explícito: campo ausente ⇒ no lo ve ningún supervisor.
+    //
+    // FAIL-CLOSED, y es una divergencia consciente con "activo por
+    // omisión": ese criterio existe para que una migración no esconda
+    // media base. Acá el riesgo es el contrario — un campo ausente que da
+    // acceso a plata ajena. Un supervisor que no ve un proyecto se queja
+    // el mismo día; uno que ve el bono de otro no se queja nunca.
+    function estaEnLaLista(datos) {
+      return 'supervisorIds' in datos.keys()
+             && request.auth.uid in datos.supervisorIds;
+    }
+
+    // Para el documento del proyecto, donde `resource` YA es el proyecto.
+    // Cubre `get` y `list`. Para `list`, Firestore evalúa la CONSULTA y no
+    // sus resultados: si un solo documento no pasara, falla entera. Por eso
+    // el cliente filtra con `where('supervisorIds','array-contains', uid)`
+    // — no es cosmético, es lo que hace la consulta demostrablemente segura.
+    function puedeVerEsteProyecto() {
+      return esIngeniero() || (esSupervisor() && estaEnLaLista(resource.data));
+    }
+
+    // Para las subcolecciones, donde hay que ir a buscar el padre.
+    //
+    // El `get()` cuesta una lectura facturada. Ese es el precio de que la
+    // protección sea real y no de interfaz: sin esto, un supervisor con la
+    // URL de una meta ajena leería su bono igual. Firestore cachea el mismo
+    // `get()` dentro de una solicitud, así que leer 52 hitos no son 52
+    // lecturas extra.
+    function puedeVerProyecto(proyectoId) {
+      return esIngeniero()
+             || (esSupervisor()
+                 && estaEnLaLista(
+                      get(/databases/$(database)/documents/proyectos/$(proyectoId)).data));
+    }
+
     // ── /usuarios/{uid} ─────────────────────────────────────────────────
     // Lectura abierta a usuarios autenticados: el Ingeniero necesita
     // listar supervisores para asignarles tareas.
@@ -98,19 +144,19 @@ service cloud.firestore {
     // Incluye el mapa `reglasBono`: editarlo es `update` sobre el proyecto,
     // por lo tanto exclusivo del Ingeniero.
     //
-    // ⚠️ DEUDA DECLARADA: la matriz §6 dice que el supervisor ve "solo los
-    // suyos". No se puede aplicar todavía — no existe el campo que ate un
-    // proyecto a sus supervisores. Requiere `supervisorIds: string[]` en el
-    // documento del proyecto. Hasta entonces la lectura es para ambos roles.
+    // Bloque 5b: la matriz §6 —"el supervisor ve solo los suyos"— por fin
+    // se aplica. El campo es `supervisorIds: string[]`; arreglo en las dos
+    // direcciones, porque un supervisor puede tener varios frentes (§6.2)
+    // y nada impide que un frente tenga dos supervisores.
     match /proyectos/{proyectoId} {
-      allow read:           if esUsuario();
+      allow read:           if puedeVerEsteProyecto();
       allow create, update: if esIngeniero();
       allow delete:         if false;
 
       // ── metas ────────────────────────────────────────────────────────
       // hhPlanilla, fechaEntrega, cierre y snapshot: todos del Ingeniero.
       match /metas/{metaId} {
-        allow read:           if esUsuario();
+        allow read:           if puedeVerProyecto(proyectoId);
         allow create, update: if esIngeniero();
         allow delete:         if false;
 
@@ -118,11 +164,14 @@ service cloud.firestore {
         // D-11 aplicado en el servidor: el supervisor solo puede escribir
         // la propuesta. `avancePct` — el valor que el motor usa para
         // calcular dinero — es inaccesible para quien cobra el bonoMO.
+        // Las dos condiciones se SUMAN desde el bloque 5b: solo la
+        // propuesta, y solo en los proyectos que son suyos.
         match /hitos/{hitoId} {
-          allow read:   if esUsuario();
+          allow read:   if puedeVerProyecto(proyectoId);
           allow create: if esIngeniero();
           allow update: if esIngeniero() ||
                            (esSupervisor() &&
+                            puedeVerProyecto(proyectoId) &&
                             soloCambia(['avancePropuesto', 'propuestoPor', 'propuestoEn']));
           allow delete: if false;
         }
@@ -131,7 +180,7 @@ service cloud.firestore {
         // El factor de calidad es el freno del sistema y lo califica quien
         // no cobra el bono que ese factor reduce.
         match /evaluaciones/{evaluacionId} {
-          allow read:           if esUsuario();
+          allow read:           if puedeVerProyecto(proyectoId);
           allow create, update: if esIngeniero();
           allow delete:         if false;
         }
@@ -141,8 +190,9 @@ service cloud.firestore {
         // escrito para no repetir el deploy de reglas más adelante.
         // El supervisor cierra el día; el ingeniero puede corregirlo.
         match /asistencias/{fecha} {
-          allow read:           if esUsuario();
-          allow create, update: if esIngeniero() || esSupervisor();
+          allow read:           if puedeVerProyecto(proyectoId);
+          allow create, update: if esIngeniero() ||
+                                   (esSupervisor() && puedeVerProyecto(proyectoId));
           allow delete:         if false;
         }
       }
@@ -152,19 +202,22 @@ service cloud.firestore {
       // renombrarlo es una migración de datos que pertenece al bloque 7.
       // Aquí guarda el uid del SUPERVISOR asignado.
       match /tareas/{tareaId} {
-        allow read:   if esUsuario();
+        allow read:   if puedeVerProyecto(proyectoId);
         allow create: if esIngeniero();
         allow update: if esIngeniero() ||
-                         (esSupervisor() && resource.data.jefeCuadrillaId == request.auth.uid);
+                         (esSupervisor() &&
+                          puedeVerProyecto(proyectoId) &&
+                          resource.data.jefeCuadrillaId == request.auth.uid);
         allow delete: if false;
 
         // ── registrosHoras/{empleadoId} ──────────────────────────────────
         // Ata el reverso del ticket al frente: solo el supervisor asignado
         // a ESTA tarea escribe sus horas.
         match /registrosHoras/{empleadoId} {
-          allow read:  if esUsuario();
+          allow read:  if puedeVerProyecto(proyectoId);
           allow write: if esIngeniero() ||
                           (esSupervisor() &&
+                           puedeVerProyecto(proyectoId) &&
                            get(/databases/$(database)/documents/proyectos/$(proyectoId)/tareas/$(tareaId))
                              .data.jefeCuadrillaId == request.auth.uid);
         }
@@ -172,8 +225,17 @@ service cloud.firestore {
 
       // ── pagos (bloque 8) ───────────────────────────────────────────────
       // Anticipado, sin consumidores todavía.
+      //
+      // ⚠️ CAMBIO DEL BLOQUE 5b: la lectura pasa de `esUsuario()` a
+      // `esIngeniero()`. El libro incluye `montoIngeniero` y
+      // `montoTrabajadores`: es el reparto completo de la obra, no el bono
+      // propio. Ver su propio bono es la pantalla del bloque 5; esto es
+      // otra cosa. Se hace AHORA porque no hay consumidores — abrirlo
+      // después es fácil; cerrarlo cuando alguien ya lo lee, no.
+      // Vuelta atrás, si se decide lo contrario, es una línea:
+      //     allow read: if puedeVerProyecto(proyectoId);
       match /pagos/{pagoId} {
-        allow read:           if esUsuario();
+        allow read:           if esIngeniero();
         allow create, update: if esIngeniero();
         allow delete:         if false;
       }

@@ -231,10 +231,16 @@ async function arrancar() {
 
   let proyectoId = null;
   let metas = [];
+  /** uid con el que filtrar, o `null` para ver todo. Lo fija el rol. */
+  let soloDe = null;
 
   protegerPagina([ROL_INGENIERO, ROL_SUPERVISOR], async (perfil) => {
     renderSidebar(perfil);
     $('nombre-usuario').textContent = perfil.nombre;
+    // Bloque 5b — la asimetría es deliberada: el ingeniero define el alcance
+    // de todos los frentes y tiene que verlos todos; el Maestro de Obras ve
+    // solo los suyos. El bono de otro Maestro de Obras no es asunto suyo.
+    soloDe = perfil.rol === ROL_SUPERVISOR ? perfil.uid : null;
     await cargarProyectos();
   });
 
@@ -246,9 +252,12 @@ async function arrancar() {
   async function cargarProyectos() {
     let proyectos = [];
     try {
-      proyectos = await proyectosRepo.listar();
+      proyectos = await proyectosRepo.listar({ soloDe });
     } catch (err) {
       return avisar(`No se pudieron cargar los proyectos: ${err.message}`);
+    }
+    if (!proyectos.length && soloDe) {
+      return avisar('No tenés ningún proyecto asignado.');
     }
     for (const p of proyectos) {
       const o = document.createElement('option');

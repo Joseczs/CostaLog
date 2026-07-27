@@ -191,15 +191,19 @@ async function arrancar() {
   async function cargarProyectos() {
     let proyectos = [];
     try {
-      proyectos = await proyectosRepo.listar();
+      // Bloque 5b: solo los proyectos donde este supervisor está asignado.
+      // `soloDe` no es cosmético — sin él la consulta ni siquiera pasa las
+      // reglas, porque Firestore evalúa la consulta entera, no sus resultados.
+      proyectos = await proyectosRepo.listar({ soloDe: uid });
     } catch (err) {
       return avisar(`No se pudieron cargar los proyectos: ${err.message}`);
     }
-    if (!proyectos.length) return avisar('No hay proyectos activos.');
+    if (!proyectos.length) {
+      return avisar(
+        'No tenés ningún proyecto asignado. Pedile al Ingeniero que te asigne uno.',
+      );
+    }
 
-    // ⚠️ Deuda 2: no existe `supervisorIds`, así que acá salen TODOS los
-    // proyectos, no solo los suyos. En un teléfono, en obra, esa lista larga
-    // es el primer lugar donde se equivoca de proyecto.
     for (const p of proyectos) {
       const opt = document.createElement('option');
       opt.value = p.id;
