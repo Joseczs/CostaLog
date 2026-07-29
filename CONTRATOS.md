@@ -27,8 +27,10 @@ desactualizado es peor que no tenerlo.
 | 5c/B | Datos: rol supervisor → maestro | ✅ hecho | 1 usuario migrado |
 | 5c/C | Código: roles.js + auth.js | ✅ hecho | 15/15 |
 | 5c/C-bis | El registro escribe el rol vigente | ✅ hecho | 21/21 |
-| 5c/D | Reglas estrictas (solo maestro) | ⬜ | — |
+| 5c/textos | Un nombre por rol en la interfaz | ✅ hecho | 7/7 |
+| 5c/D | Reglas estrictas (solo maestro) | ✅ hecho | 13/13 + simulador pendiente |
 | 5c/E | Directorios y rutas | ⬜ | — |
+| 5d | Cerrar deuda 1 (registro valida `rol`) | ⬜ | — |
 | 6 | Extras, créditos y evaluaciones | ⬜ | — |
 | 7 | Tareas BP + migración de pesos | ⬜ | — |
 | 8 | Pagos y exportación Excel | ⬜ | — |
@@ -1746,3 +1748,152 @@ aplica a los contratos.
 La fase B lo dio por hecho y el archivo no existe acá. La fase D lo necesita
 para verificar su precondición —cero documentos con el rol viejo—, así que
 hay que recuperarlo o reescribirlo antes.
+
+
+---
+
+## Bloque 5c/textos — un nombre por rol en la interfaz ✅
+
+```
+public/supervisor/dashboard.html                  ← "Panel del Ingeniero Residente"
+public/supervisor/gestionar-empleados.html        ← "Seleccionar Maestro de Obras"
+public/supervisor/gestionar-empleados-controller.js
+public/supervisor/nueva-tarea.html
+public/jefe/mis-tareas.html                       ← "Tareas asignadas a mi cuadrilla"
+public/jefe/mi-cuadrilla.html                     ← el que asigna es el INGENIERO
+test/bloque5c-textos.mjs                          ← nuevo, fuera del deploy
+```
+
+**Seis archivos, y se declara.** Se apoya en la excepción que este documento
+ya reconoce para la fase E: un renombrado mecánico medido es **una sola
+decisión aplicada muchas veces**, no seis decisiones de diseño. Cada cambio
+se verificó que calzara exactamente una vez antes de aplicarse.
+
+### El vocabulario, cerrado
+
+| Rol | Identificador | Etiqueta única |
+|---|---|---|
+| Tope | `ingeniero` | **Ingeniero Residente** |
+| Campo | `maestro` | **Maestro de Obras** |
+
+**"Jefe de Cuadrilla" se retira de la interfaz.** D-04 dice que es la misma
+persona que el Maestro de Obras; dos nombres para un rol es exactamente la
+incoherencia que este bloque cierra.
+
+**"Supervisor" no nombra a nadie.** En `mi-cuadrilla.html` decía que el
+Supervisor asigna el equipo — y según la matriz del bloque 2, crear
+empleados es del **ingeniero**. El texto no solo usaba el nombre viejo:
+señalaba al rol equivocado.
+
+### EXCEPCIÓN declarada — la columna de Excel NO se renombra
+
+`importarExcel.js` lee la columna **"Jefe de Cuadrilla"** de los archivos
+que la obra ya tiene armados, y `exportarExcel.js` la escribe.
+`dashboard.html` documenta esa misma columna en el modal de importación, así
+que tiene que decir exactamente lo mismo o la instrucción miente.
+
+Es un **contrato de intercambio de datos, no una etiqueta de pantalla.**
+Renombrarlo rompe cada plantilla existente. Pertenece al bloque 8, junto con
+el resto del libro de Excel.
+
+`test/bloque5c-textos.mjs` tiene una prueba que **exige que esa columna
+conserve su nombre**: si alguien la "arregla", falla acá y no en la obra.
+
+### Verificación
+
+`test/bloque5c-textos.mjs` — 7/7. Escanea todo `public/**.{html,js}`
+descontando comentarios, así que el bloqueo es sobre lo que se lee en
+pantalla y no sobre lo que un comentario explica.
+
+---
+
+## Bloque 5c/D — reglas estrictas ✅ (falta el simulador)
+
+```
+firestore.rules                       ← deuda 19 CERRADA + fase D
+scripts/migrar-rol-maestro.js         ← nuevo, deuda 20 CERRADA
+scripts/migrar-supervisor-ids.js      ← EXCEPCIÓN, una constante
+scripts/migrar-roles.js               ← EXCEPCIÓN, guarda de retiro
+test/bloque5cd.mjs                    ← nuevo, fuera del deploy
+```
+
+### Deuda 19 cerrada — el repo vuelve a ser la fuente de verdad
+
+Las reglas desplegadas se compararon contra las del repo. **El único delta
+era la fase A**: `esMaestro()` agregada y `esSupervisor()` convertida en
+alias. Los 34 `allow` eran idénticos. Con eso confirmado, la fase D se
+aplicó sobre el archivo real.
+
+### El cambio
+
+```
+function esMaestro()      // ANTES: 'maestro' O 'supervisor'
+                          // AHORA: solo 'maestro'
+function esSupervisor()   // RETIRADA. 8 sitios de llamada → esMaestro()
+```
+
+**El alias se retira ahora y no en la fase E.** Un alias que no hace nada es
+un renglón que el próximo lector interpreta como que sí hace algo. Son ocho
+reemplazos mecánicos en un archivo que ya estaba abierto.
+
+### Invariantes que no se rompen
+
+- **Solo hay DOS comparaciones de rol en todo el archivo**, una por rol,
+  dentro de sus helpers. Tiene prueba: si aparece una tercera, alguien
+  escribió un rol a mano fuera de `esIngeniero()` / `esMaestro()`.
+- **El alcance del bloque 5b quedó intacto**: `estaEnLaLista`,
+  `puedeVerEsteProyecto` y `puedeVerProyecto` sin tocar, con su fail-closed.
+- **D-11 sigue en el servidor.** `avancePct` es inescribible para quien
+  cobra el `bonoMO`.
+- **Los pagos siguen cerrados al maestro.** Tiene prueba propia.
+- **Cero borrado duro**, en los mismos documentos.
+- **`supervisorIds` conserva su nombre.** Renombrarlo es migración de datos
+  y necesita bloque propio con script, reglas y código en pasos separados.
+
+### Los dos scripts que la fase D dejaba rotos
+
+**`migrar-supervisor-ids.js`** filtraba por `rol === 'supervisor'`. Con las
+reglas estrictas habría listado **cero maestros** — y es hoy la única forma
+de asignar proyectos (deuda 16). Una constante.
+
+**`migrar-roles.js` queda RETIRADO con guarda.** Su mapa del bloque 2
+convierte *hacia* `'supervisor'`, que ya no concede nada: correrlo hoy
+dejaría cuentas sin acceso, sin error visible. No se borra porque documenta
+el intercambio de significado del string —oficina → campo— que es la única
+explicación de por qué `rolAnterior` y `rolMigradoEn` existen.
+
+### ⚠️ Verificación PENDIENTE — no está cerrado hasta esto
+
+`test/bloque5cd.mjs` — 13/13 — fija la **forma** del archivo, no su
+comportamiento. Las reglas no se ejecutan en Node.
+
+Falta, igual que en el bloque 5b, la verificación en el **Simulador de la
+consola** con las cuentas reales. Y antes de eso, la precondición:
+
+```
+1. node scripts/migrar-rol-maestro.js            ← debe decir CERO rol viejo
+2. si no da cero:  node scripts/migrar-rol-maestro.js --escribir
+3. node scripts/migrar-rol-maestro.js            ← verificar de nuevo
+4. firebase deploy --only firestore              ← desde cmd
+5. Simulador: 4 pruebas con los uid reales
+```
+
+**Un guardia de servidor no se prueba desde una interfaz que filtra antes**
+— la lección del 5b sigue vigente.
+
+### Deuda
+
+- **19 — CERRADA.** El repo vuelve a ser la fuente de verdad de las reglas.
+- **20 — CERRADA.** `migrar-rol-maestro.js` existe.
+- **21 — `roles.js` es MÁS tolerante que las reglas.** `normalizarRol()`
+  sigue traduciendo `'supervisor'` → `'maestro'`, pero el servidor ya no le
+  concede nada a ese valor. Un documento rezagado pasaría el guardia de
+  interfaz y chocaría con permisos en cada pantalla. La precondición de la
+  fase D es que no exista ninguno; retirar la tolerancia del código va con
+  la fase E, que ya abre `roles.js` para el alias `ROL_SUPERVISOR`.
+- **1 — sigue abierta, y ahora tiene bloque asignado (5d).** No cabía acá:
+  exigir `rol == 'maestro'` al crear `usuarios/{uid}` rompe el formulario de
+  registro, que **ofrece "Ingeniero Residente" como opción**. Son dos
+  mitades —regla y UI— y tienen que desplegarse en orden: primero la UI que
+  deja de ofrecerlo, después la regla. Mezclarlas en un bloque garantiza que
+  alguien las despliegue juntas.

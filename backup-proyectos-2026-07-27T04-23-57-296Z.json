@@ -1,0 +1,107 @@
+[
+  {
+    "id": "GagG6KOsacHDzNzAIlSc",
+    "activo": true,
+    "codigo": "123",
+    "estado": "activo",
+    "ubicacion": "Cartago",
+    "nombre": "Prueba 1",
+    "createdAt": {
+      "_seconds": 1784997289,
+      "_nanoseconds": 487000000
+    },
+    "reglasBono": {
+      "tarifaBPporHH": 200,
+      "permitirBonoNegativo": false,
+      "costoDiarioAdmin": 50000,
+      "pctBonoEntregaAnticipada": 30,
+      "costoPromHH": 3200,
+      "factorRetoBP": 0.9,
+      "pctBonoMO": 100,
+      "horasJornada": 11,
+      "pctBonoING": 0,
+      "pctBonoHoraProductividad": 20,
+      "hhMiscelaneosPorDia": 7,
+      "permitirDiasAtrasoNegativos": false
+    }
+  },
+  {
+    "id": "SkwnnyHsfatzLm6RkMUZ",
+    "codigo": "OT-1234",
+    "nombre": "Torre Norte",
+    "creadoDesdeExcel": true,
+    "createdAt": {
+      "_seconds": 1783108636,
+      "_nanoseconds": 439000000
+    },
+    "estado": "activo",
+    "ubicacion": "Avenida 10, Calle 2",
+    "activo": false
+  },
+  {
+    "id": "aCvkdC8B2uxXX83rmZfY",
+    "codigo": "123",
+    "nombre": "123",
+    "ubicacion": "123",
+    "estado": "activo",
+    "createdAt": {
+      "_seconds": 1783053301,
+      "_nanoseconds": 603000000
+    },
+    "activo": false
+  },
+  {
+    "id": "bXVevV775LBPexOiosHK",
+    "codigo": "OT-1235",
+    "nombre": "Torre Sur",
+    "ubicacion": "San Jose",
+    "estado": "activo",
+    "createdAt": {
+      "_seconds": 1783108791,
+      "_nanoseconds": 100000000
+    },
+    "activo": false
+  },
+  {
+    "id": "fixture-unidepro",
+    "reglasBono": {
+      "costoDiarioAdmin": 50000,
+      "permitirDiasAtrasoNegativos": false,
+      "permitirBonoNegativo": false,
+      "costoPromHH": 3200,
+      "pctBonoING": 0,
+      "pctBonoMO": 100,
+      "hhMiscelaneosPorDia": 7,
+      "pctBonoHoraProductividad": 20,
+      "factorRetoBP": 0.9,
+      "horasJornada": 11,
+      "pctBonoEntregaAnticipada": 30,
+      "tarifaBPporHH": 200
+    },
+    "codigo": "FIXTURE",
+    "esFixture": true,
+    "frente": "Caso de aceptación §5.6",
+    "nombre": "⚠ FIXTURE — UNA UNIDEPRO",
+    "activo": true,
+    "createdAt": {
+      "_seconds": 1779775200,
+      "_nanoseconds": 0
+    },
+    "estado": "incompleto",
+    "ubicacion": ""
+  },
+  {
+    "id": "i9zGeV8siPZDawOS70CA",
+    "frente": "PRUEBA",
+    "nombre": "ZZ-PRUEBA-HARNESS",
+    "createdAt": {
+      "_seconds": 1784961347,
+      "_nanoseconds": 758000000
+    },
+    "reglasBono": {
+      "pctBonoHoraProductividad": 20,
+      "costoPromHH": 3200
+    },
+    "activo": false
+  }
+]

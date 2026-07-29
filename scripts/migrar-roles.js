@@ -37,6 +37,26 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { initializeApp, cert, applicationDefault } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
+// ═══════════════════════════════════════════════════════════════════════
+// ⚠️ SCRIPT RETIRADO — bloque 2, ya ejecutado. NO VOLVER A CORRERLO.
+//
+// Su mapa convierte HACIA 'supervisor', que desde la fase D del bloque 5c
+// no concede ningún permiso. Correrlo hoy dejaría cuentas sin acceso a
+// nada, y sin error visible.
+//
+// No se borra porque documenta el intercambio de significado del string
+// 'supervisor' —oficina → campo— que es la única explicación de por qué
+// `rolAnterior` y `rolMigradoEn` existen en los documentos de usuario.
+//
+// Para migrar roles hoy: scripts/migrar-rol-maestro.js
+// ═══════════════════════════════════════════════════════════════════════
+if (!process.argv.includes('--si-se-lo-que-hago')) {
+  console.error('\n✗ Script retirado (bloque 2, ya ejecutado).');
+  console.error('  Su mapa escribe un rol que ya no concede permisos.');
+  console.error('  Para migrar roles: node scripts/migrar-rol-maestro.js\n');
+  process.exit(1);
+}
+
 const ESCRIBIR = process.argv.includes('--escribir');
 const CLAVE = 'serviceAccountKey.json';
 

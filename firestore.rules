@@ -2,17 +2,23 @@ rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════════════
 // COSTACON — Reglas de seguridad Firestore
-// Bloque 2 — Dos roles: 'ingeniero' y 'supervisor'.  (D-03, D-04)
-// Bloque 5b — Alcance por supervisor: `supervisorIds` en el proyecto.
+// Bloque 2   — Dos roles.  (D-03, D-04)
+// Bloque 5b  — Alcance por maestro: `supervisorIds` en el proyecto.
+// Bloque 5c  — El rol de campo se llama 'maestro'.  Fase A: se aceptaban
+//              los dos valores.  FASE D (esta): solo 'maestro'.
 //
-//   ingeniero  ≡ Ingeniero Residente.  Define el alcance y las reglas:
+//   ingeniero ≡ Ingeniero Residente.  Define el alcance y las reglas:
 //               proyectos, reglasBono, metas, hitos, evaluaciones, pagos,
 //               creación de tareas BP y de empleados.  APRUEBA el avance.
 //
-//   supervisor ≡ Maestro de Obras ≡ Jefe de Cuadrilla.  Ejecuta en sitio:
-//               arma cuadrillas, reporta HH reales, alterna `disponible`
-//               de su roster, cierra la asistencia del día.  PROPONE el
-//               avance, no lo aprueba.
+//   maestro   ≡ Maestro de Obras.  Ejecuta en sitio: arma cuadrillas,
+//               reporta HH reales, alterna `disponible` de su roster,
+//               cierra la asistencia del día.  PROPONE el avance, no lo
+//               aprueba.
+//
+// UN NOMBRE POR ROL.  'supervisor', 'jefe_cuadrilla' y 'admin' no conceden
+// nada.  El campo `supervisorIds` del proyecto conserva su nombre porque
+// renombrarlo es migración de datos, no de reglas.
 //
 // Los roles 'jefe_cuadrilla' y 'admin' fueron eliminados (ver
 // scripts/migrar-roles.js).  Ningún valor fuera de los dos de arriba
@@ -44,13 +50,27 @@ service cloud.firestore {
       return habilitado() && perfil().rol == 'ingeniero';
     }
 
-    function esSupervisor() {
-      return habilitado() && perfil().rol == 'supervisor';
+    // ── FASE D del bloque 5c — la tolerancia se retira ─────────────────
+    //
+    // La fase A aceptaba 'maestro' Y 'supervisor' para que datos, reglas y
+    // código no tuvieran que cambiar en el mismo instante. Migrados todos
+    // los documentos (fase B) y cerrado el grifo que seguía escribiendo el
+    // valor viejo desde el registro (5c/C-bis), la tolerancia ya no
+    // protege a nadie: solo deja viva una puerta que nadie vigila.
+    //
+    // El alias de compatibilidad de la fase A —que se llamaba como el rol
+    // viejo— queda RETIRADO. Un alias que no hace nada es un renglón que
+    // el próximo lector interpreta como que sí hace algo.
+    //
+    // ⚠️ Si esta función volviera a aceptar 'supervisor', el bloque 5c
+    // quedó a medias — o alguien restauró un archivo viejo.
+    function esMaestro() {
+      return habilitado() && perfil().rol == 'maestro';
     }
 
     // Cualquiera de los dos roles válidos. Un rol desconocido da false.
     function esUsuario() {
-      return esIngeniero() || esSupervisor();
+      return esIngeniero() || esMaestro();
     }
 
     function esElMismoUsuario(uid) {
@@ -90,7 +110,7 @@ service cloud.firestore {
     // el cliente filtra con `where('supervisorIds','array-contains', uid)`
     // — no es cosmético, es lo que hace la consulta demostrablemente segura.
     function puedeVerEsteProyecto() {
-      return esIngeniero() || (esSupervisor() && estaEnLaLista(resource.data));
+      return esIngeniero() || (esMaestro() && estaEnLaLista(resource.data));
     }
 
     // Para las subcolecciones, donde hay que ir a buscar el padre.
@@ -102,7 +122,7 @@ service cloud.firestore {
     // lecturas extra.
     function puedeVerProyecto(proyectoId) {
       return esIngeniero()
-             || (esSupervisor()
+             || (esMaestro()
                  && estaEnLaLista(
                       get(/databases/$(database)/documents/proyectos/$(proyectoId)).data));
     }
@@ -134,7 +154,7 @@ service cloud.firestore {
         allow read:   if esUsuario();
         allow create: if esIngeniero();
         allow update: if esIngeniero() ||
-                         (esElMismoUsuario(uid) && esSupervisor() &&
+                         (esElMismoUsuario(uid) && esMaestro() &&
                           soloCambia(['disponible']));
         allow delete: if false;
       }
@@ -170,7 +190,7 @@ service cloud.firestore {
           allow read:   if puedeVerProyecto(proyectoId);
           allow create: if esIngeniero();
           allow update: if esIngeniero() ||
-                           (esSupervisor() &&
+                           (esMaestro() &&
                             puedeVerProyecto(proyectoId) &&
                             soloCambia(['avancePropuesto', 'propuestoPor', 'propuestoEn']));
           allow delete: if false;
@@ -192,7 +212,7 @@ service cloud.firestore {
         match /asistencias/{fecha} {
           allow read:           if puedeVerProyecto(proyectoId);
           allow create, update: if esIngeniero() ||
-                                   (esSupervisor() && puedeVerProyecto(proyectoId));
+                                   (esMaestro() && puedeVerProyecto(proyectoId));
           allow delete:         if false;
         }
       }
@@ -205,7 +225,7 @@ service cloud.firestore {
         allow read:   if puedeVerProyecto(proyectoId);
         allow create: if esIngeniero();
         allow update: if esIngeniero() ||
-                         (esSupervisor() &&
+                         (esMaestro() &&
                           puedeVerProyecto(proyectoId) &&
                           resource.data.jefeCuadrillaId == request.auth.uid);
         allow delete: if false;
@@ -216,7 +236,7 @@ service cloud.firestore {
         match /registrosHoras/{empleadoId} {
           allow read:  if puedeVerProyecto(proyectoId);
           allow write: if esIngeniero() ||
-                          (esSupervisor() &&
+                          (esMaestro() &&
                            puedeVerProyecto(proyectoId) &&
                            get(/databases/$(database)/documents/proyectos/$(proyectoId)/tareas/$(tareaId))
                              .data.jefeCuadrillaId == request.auth.uid);

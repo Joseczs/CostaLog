@@ -36,7 +36,12 @@ const SOLO_LISTAR = tiene('--listar');
 const ASIGNAR_A = valorDe('--asignar');
 const TODOS_A = valorDe('--todos-a');
 
-const ROL_SUPERVISOR = 'supervisor';
+// Bloque 5c/D — el rol de campo se llama 'maestro'. Antes decía
+// 'supervisor' y, con las reglas estrictas desplegadas, este script habría
+// listado CERO maestros: el filtro no calzaba con ningún documento. El
+// nombre de la constante y el del campo `supervisorIds` se dejan como
+// están — renombrar el campo es migración de datos, no de scripts.
+const ROL_SUPERVISOR = 'maestro';
 const ROL_INGENIERO = 'ingeniero';
 
 // ⚠️ `{ credential: cert(...) }`, NO `{ cert: ... }`. La segunda forma no es

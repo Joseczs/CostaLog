@@ -59,7 +59,7 @@ document.getElementById('form-empleado').addEventListener('submit', async (e) =>
   errorEl.textContent = '';
 
   if (!jefeSeleccionadoId) {
-    errorEl.textContent = 'Selecciona un Jefe de Cuadrilla primero.';
+    errorEl.textContent = 'Selecciona un Maestro de Obras primero.';
     return;
   }
 
@@ -70,7 +70,7 @@ document.getElementById('form-empleado').addEventListener('submit', async (e) =>
 
     await addDoc(collection(db, 'usuarios', jefeSeleccionadoId, 'empleados'), {
       numeroEmpleado, nombre, rolHabitual,
-      activo: true,        // estado maestro — lo controla el Supervisor
+      activo: true,        // alta / soft-delete — lo controla el Ingeniero
       disponible: true,    // disponibilidad diaria — la controla el Jefe
       createdAt: serverTimestamp()
     });
@@ -82,7 +82,7 @@ document.getElementById('form-empleado').addEventListener('submit', async (e) =>
 });
 
 // ── Listar empleados del Jefe seleccionado (tiempo real) ────────────────
-// El Supervisor ve TODOS (activos e inactivos) y puede Eliminar (soft-delete
+// El Ingeniero ve TODOS (activos e inactivos) y puede Eliminar (soft-delete
 // activo:false) o Restaurar. Un empleado inactivo desaparece de las listas
 // de selección de tareas y de "Mi Equipo" del Jefe, pero su historial de
 // bonos ya calculados permanece intacto.
