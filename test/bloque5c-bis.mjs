@@ -163,4 +163,33 @@ prueba('auth.js importa rolParaGuardar', () => {
     /import \{[^}]*rolParaGuardar[^}]*\} from '\.\/roles\.js'/);
 });
 
-console.log(`\n  ${pasadas}/17 pruebas pasadas\n`);
+prueba('el selector no depende de que el HTML traiga el contenedor', () => {
+  const js = leerSinComentarios('public/js/login-controller.js');
+  assert.match(js, /function contenedorDeRoles\(\)/,
+    'falta la guarda que fabrica el contenedor si no está');
+  assert.match(js, /createElement\('div'\)/,
+    'la guarda debe poder crear el contenedor');
+});
+
+prueba('un fallo del selector NO se lleva puesto el resto del módulo', () => {
+  const js = leerSinComentarios('public/js/login-controller.js');
+  assert.match(js, /try \{\s*pintarSelectorDeRoles\(\);\s*\} catch/,
+    'pintar el selector debe estar aislado: si falla, el login sigue vivo');
+});
+
+prueba('repintar no duplica botones', () => {
+  const js = leerSinComentarios('public/js/login-controller.js');
+  assert.match(js, /replaceChildren\(\)/,
+    'el contenedor se vacía antes de pintar, o los botones se acumulan');
+});
+
+prueba('el manejador se ata al crear el botón, no después', () => {
+  const js = leerSinComentarios('public/js/login-controller.js');
+  const iPintar = js.indexOf('function pintarSelectorDeRoles');
+  const bloque = js.slice(iPintar);
+  assert.match(bloque, /btn\.addEventListener\('click'/,
+    'atar los manejadores con un querySelectorAll posterior permite pintar ' +
+    'un botón sin manejador');
+});
+
+console.log(`\n  ${pasadas}/21 pruebas pasadas\n`);

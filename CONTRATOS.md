@@ -26,7 +26,7 @@ desactualizado es peor que no tenerlo.
 | 5c/A | Reglas tolerantes (dos valores) | ✅ hecho | desplegada |
 | 5c/B | Datos: rol supervisor → maestro | ✅ hecho | 1 usuario migrado |
 | 5c/C | Código: roles.js + auth.js | ✅ hecho | 15/15 |
-| 5c/C-bis | El registro escribe el rol vigente | ✅ hecho | 17/17 |
+| 5c/C-bis | El registro escribe el rol vigente | ✅ hecho | 21/21 |
 | 5c/D | Reglas estrictas (solo maestro) | ⬜ | — |
 | 5c/E | Directorios y rutas | ⬜ | — |
 | 6 | Extras, créditos y evaluaciones | ⬜ | — |
@@ -1685,9 +1685,43 @@ primero se verifica la especificación.
 
 ### Verificación
 
-- `test/bloque5c-bis.mjs` — **17/17** en Node, sin red.
+- `test/bloque5c-bis.mjs` — **21/21** en Node, sin red.
 - Las siete suites anteriores intactas: 22, 15, 24, 19, 18, 16, 15.
 - Sintaxis verificada en los tres JS tocados.
+
+### El fallo en producción, y la lección
+
+La primera versión hacía `getElementById('rol-selector').appendChild(…)` y
+reventó apenas se desplegó:
+
+```
+TypeError: can't access property "appendChild", contenedorRoles is null
+```
+
+El JS nuevo llegó a producción y el `index.html` nuevo no. **Dos archivos
+que tienen que viajar juntos terminan viajando separados alguna vez**, y el
+controlador no tenía por qué depender de un `id` que vive en otro archivo.
+
+Lo grave no era el síntoma sino el radio: en un ES Module un error corta el
+archivo ENTERO, así que no se registró **ningún** otro manejador. Los tabs,
+el toggle correo/teléfono y los dos formularios de login quedaron muertos.
+La página se veía bien y no respondía a nada — el mismo modo de falla que un
+import roto, ya anotado en este documento.
+
+Corregido con tres cambios:
+
+- `contenedorDeRoles()` usa el contenedor si existe y lo **fabrica** si no,
+  avisando por consola. El desfase sigue siendo un problema; ya no rompe la
+  página.
+- Pintar el selector va dentro de un `try`. Un registro roto es un problema;
+  una pantalla de ingreso muerta deja afuera a todo el mundo.
+- El manejador se ata **al crear cada botón**, no con un `querySelectorAll`
+  posterior: así no hay forma de pintar un botón sin su manejador.
+- `replaceChildren()` antes de pintar: repintar no duplica.
+
+> **Regla para la próxima.** Un controlador no depende de un `id` que vive
+> en otro archivo sin una guarda. Y todo arranque de módulo que pueda fallar
+> se aísla, porque en ES Modules el fallo no es local: es total.
 
 ### ⚠️ Deuda 19 — PRODUCCIÓN ESTÁ ADELANTE DEL REPO
 

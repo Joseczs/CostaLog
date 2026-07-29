@@ -61,32 +61,82 @@ document.querySelectorAll('.metodo-btn').forEach(btn => {
 const ICONO_ROL = { [ROL_INGENIERO]: '📐', [ROL_MAESTRO]: '👷' };
 
 const inputRol = document.getElementById('signup-rol');
-const contenedorRoles = document.getElementById('rol-selector');
 
-ROLES.forEach(rol => {
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'rol-btn';
-  btn.dataset.rol = rol;
+/**
+ * Devuelve el contenedor de los botones, creándolo si no existe.
+ *
+ * ── Por qué no basta con getElementById ───────────────────────────────
+ * La primera versión hacía `getElementById('rol-selector').appendChild(…)`
+ * y reventaba con `contenedorRoles is null` cuando el JS nuevo llegaba a
+ * producción y el HTML nuevo todavía no. Dos archivos que tienen que
+ * viajar juntos siempre terminan viajando separados alguna vez.
+ *
+ * Peor que el síntoma: en un ES Module un error acá corta el archivo
+ * ENTERO, así que no se registraba ningún otro manejador. Los tabs, el
+ * toggle correo/teléfono y los dos formularios de login quedaban muertos.
+ * La página se veía bien y no respondía a nada — el mismo modo de falla
+ * que un import roto, ya anotado en CONTRATOS.md.
+ *
+ * Ahora el controlador no depende del HTML: si el contenedor está, lo usa;
+ * si no, lo fabrica antes del input oculto. Se avisa por consola porque el
+ * desfase sigue siendo un problema, solo que ya no rompe la página.
+ */
+function contenedorDeRoles() {
+  const existente = document.getElementById('rol-selector')
+                 || document.querySelector('.rol-selector');
+  if (existente) return existente;
 
-  const icono = document.createElement('span');
-  icono.className = 'rol-icon';
-  icono.textContent = ICONO_ROL[rol] || '';
+  console.warn(
+    '[roles] Falta el contenedor #rol-selector en index.html — se creó al vuelo. ' +
+    'Revisá que el HTML desplegado sea el mismo commit que este archivo.'
+  );
+  const creado = document.createElement('div');
+  creado.className = 'rol-selector';
+  creado.id = 'rol-selector';
+  inputRol.parentNode.insertBefore(creado, inputRol);
+  return creado;
+}
 
-  const etiqueta = document.createElement('span');
-  etiqueta.textContent = ETIQUETA_ROL[rol];
+function pintarSelectorDeRoles() {
+  const contenedor = contenedorDeRoles();
+  contenedor.replaceChildren();   // idempotente: nunca duplica botones
 
-  btn.append(icono, etiqueta);
-  contenedorRoles.appendChild(btn);
-});
+  ROLES.forEach(rol => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'rol-btn';
+    btn.dataset.rol = rol;
 
-document.querySelectorAll('.rol-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.rol-btn').forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
-    inputRol.value = btn.dataset.rol;
+    const icono = document.createElement('span');
+    icono.className = 'rol-icon';
+    icono.textContent = ICONO_ROL[rol] || '';
+
+    const etiqueta = document.createElement('span');
+    etiqueta.textContent = ETIQUETA_ROL[rol];
+
+    btn.append(icono, etiqueta);
+
+    // El manejador se ata al crear el botón, no con un querySelectorAll
+    // posterior: así no hay forma de pintar un botón sin su manejador.
+    btn.addEventListener('click', () => {
+      contenedor.querySelectorAll('.rol-btn')
+        .forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      inputRol.value = rol;
+    });
+
+    contenedor.appendChild(btn);
   });
-});
+}
+
+// Aislado a propósito: si esto fallara, el login por correo y por teléfono
+// tienen que seguir funcionando. Un registro roto es un problema; una
+// pantalla de ingreso muerta deja afuera a todo el mundo.
+try {
+  pintarSelectorDeRoles();
+} catch (err) {
+  console.error('[roles] No se pudo pintar el selector de rol:', err);
+}
 
 // ── Inicializar reCAPTCHA una sola vez ───────────────────────────────────
 inicializarRecaptcha('recaptcha-container');
