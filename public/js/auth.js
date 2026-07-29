@@ -7,7 +7,7 @@
 // libre del registro no está respaldada por seguridad. Ver CONTRATOS.md.
 // ═══════════════════════════════════════════════════════════════════════
 
-import { ROL_SUPERVISOR, HOME_POR_ROL, esRolValido } from './roles.js';
+import { ROL_MAESTRO, HOME_POR_ROL, esRolValido, normalizarRol } from './roles.js';
 import {
   auth, db,
   onAuthStateChanged, signInWithEmailAndPassword,
@@ -42,7 +42,7 @@ export async function iniciarSesion(email, password) {
 async function crearDocumentoUsuario(uid, { nombre, email, telefono, rol }) {
   const datosUsuario = {
     nombre,             // ⚠️ ÚNICO identificador visible del usuario en toda la app.
-    rol,                // ROL_INGENIERO | ROL_SUPERVISOR  (ver roles.js)
+    rol,                // ROL_INGENIERO | ROL_MAESTRO  (ver roles.js)
     activo: true,
     createdAt: serverTimestamp()
   };
@@ -113,7 +113,13 @@ export async function cerrarSesion() {
 export async function obtenerPerfilUsuario(uid) {
   const snap = await getDoc(doc(db, 'usuarios', uid));
   if (!snap.exists()) return null;
-  return { uid, ...snap.data() };
+  const datos = snap.data();
+  // Bloque 5c — ÚNICO punto donde se traduce el rol guardado al vigente.
+  // De acá para abajo, ningún archivo vuelve a ver 'supervisor': el perfil
+  // que circula por toda la app ya trae 'maestro'. Un documento sin migrar
+  // y uno migrado se comportan idéntico, que es lo que permite que las
+  // fases B y C no tengan que ser simultáneas.
+  return { uid, ...datos, rol: normalizarRol(datos.rol) };
 }
 
 export function protegerPagina(rolesPermitidos, callback) {
@@ -140,5 +146,7 @@ export function protegerPagina(rolesPermitidos, callback) {
 /** Un rol desconocido (documento viejo sin migrar, o escrito a mano) cae
  *  al rol de campo, que es el de menos permisos. Nunca al de más. */
 export function rutaHomePorRol(rol) {
-  return HOME_POR_ROL[esRolValido(rol) ? rol : ROL_SUPERVISOR];
+  // Ante un valor desconocido degrada al rol de MENOS alcance, nunca al de
+  // más. `normalizarRol` deja pasar el valor viejo sin necesitar migración.
+  return HOME_POR_ROL[esRolValido(rol) ? normalizarRol(rol) : ROL_MAESTRO];
 }

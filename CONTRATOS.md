@@ -23,7 +23,11 @@ desactualizado es peor que no tenerlo.
 | 5 | Resumen y proyección de bono | ✅ hecho | 18/18 + checklist visual |
 | 5b | Alcance por supervisor (supervisorIds) | ✅ hecho | 16/16 + verificación en producción |
 | 5b-2 | Pantalla de asignación de supervisores | ⬜ | — |
-| 5c | Renombrado de directorios | ⬜ | después del 5b |
+| 5c/A | Reglas tolerantes (dos valores) | ✅ hecho | desplegada |
+| 5c/B | Datos: rol supervisor → maestro | ✅ hecho | 1 usuario migrado |
+| 5c/C | Código: roles.js + auth.js | ✅ hecho | 15/15 |
+| 5c/D | Reglas estrictas (solo maestro) | ⬜ | — |
+| 5c/E | Directorios y rutas | ⬜ | — |
 | 6 | Extras, créditos y evaluaciones | ⬜ | — |
 | 7 | Tareas BP + migración de pesos | ⬜ | — |
 | 8 | Pagos y exportación Excel | ⬜ | — |
@@ -1387,10 +1391,51 @@ existe. Invertir 3 y 6 los deja sin ningún proyecto visible.
 - `test/bloque5b.mjs` — **16/16** en Node, sin red. Las reglas NO se prueban acá:
   eso se verifica con dos cuentas en producción.
 - Las cinco suites anteriores intactas: 22, 15, 24, 19, 18.
-- **Checklist en producción, obligatorio:** con dos supervisores y dos proyectos,
-  cada uno ve solo el suyo; y `bono-resumen.html?proyecto=<ajeno>` escrito a mano
-  **falla por reglas**, no por interfaz. Ese segundo punto es el que prueba que el
-  guardia es del servidor.
+- **Verificado en producción, 26.07.2026.** Cuatro pruebas en el Simulador de
+  reglas de la consola, con el uid real del Maestro de Obras:
+
+  | Prueba | Resultado |
+  |---|---|
+  | `get /proyectos/{ajeno}` como supervisor | denegado ✓ |
+  | `get /proyectos/{asignado}` como supervisor | permitido ✓ |
+  | `get /proyectos/{ajeno}` como ingeniero | permitido ✓ |
+  | `get /proyectos/{ajeno}/metas/{id}` como supervisor | denegado ✓ |
+
+  La cuarta es la que cierra el bloque: confirma que `puedeVerProyecto()` protege
+  las subcolecciones y no solo el documento del proyecto. Ahí está el bono.
+
+### Por qué la prueba desde la barra de direcciones NO servía
+
+El primer intento fue pegar `bono-resumen.html?proyecto=<ajeno>` en el navegador.
+Redirigió al fixture y pareció un fallo del alcance. No lo era: el controlador
+valida el parámetro **contra la lista que ya cargó** —mismo patrón del bloque 3—
+y un id que no está se ignora en silencio. El navegador nunca llegó a pedirle ese
+proyecto a Firestore, así que las reglas no se ejercitaron.
+
+**Un guardia de servidor no se prueba desde una interfaz que filtra antes.** Va
+al simulador, o a `curl` contra la API REST. Aplica a cualquier prueba de reglas
+que se escriba de acá en adelante.
+
+### Dos cosas que aparecieron durante el despliegue
+
+**1 · `initializeApp({ cert: ... })` cuelga en silencio.** La forma correcta es
+`{ credential: cert(...) }`. Con la primera, el SDK ignora la clave, no encuentra
+credencial, cae a las credenciales por defecto y —si no existen— se queda
+reintentando contra el servidor de metadatos de Google Cloud. **No falla: se
+cuelga**, después de imprimir el encabezado y antes de la primera lectura.
+
+> **Regla para la próxima.** Un script nuevo que hable con Firestore **copia el
+> arranque de uno que ya corre**, no lo escribe de nuevo. `migrar-roles.js` y
+> `cargar-fixture-unidepro.js` tenían la forma correcta a la vista.
+
+**2 · Cuatro proyectos con `activo: false` de sesiones anteriores.** Al ver dos
+proyectos donde el script listaba seis, el primer sospechoso fue el alcance. No
+podía serlo, y el propio síntoma lo decía: **Firestore nunca devuelve resultados
+parciales por reglas** — o la consulta pasa entera o falla entera. Si de seis
+vinieran dos por permisos, no se verían dos: se vería un error.
+
+Eran soft-deletes viejos que la app filtra en memoria y el script de listado no.
+Queda como deuda 17.
 
 ### Deuda
 
@@ -1399,8 +1444,164 @@ existe. Invertir 3 y 6 los deja sin ningún proyecto visible.
 - **16 — la asignación es por script.** Hasta el 5b-2, asignar un supervisor
   exige `serviceAccountKey.json` y línea de comandos. Funciona para dos o tres
   proyectos; no escala a una obra real.
+- **17 — `--listar` no distingue los proyectos desactivados.** Muestra los seis
+  cuando la app muestra dos, y eso mandó un rato a buscar un problema de permisos
+  que no existía. Un flag `activo` en la salida del script lo cierra.
+- **18 — cuatro archivos leen `proyectos` sin pasar por el repositorio.** Todos
+  del ingeniero, así que hoy no rompen. Pero el próximo cambio de contrato en
+  `proyectosRepo` los va a dejar atrás otra vez, y el síntoma va a volver a
+  parecer un problema de permisos.
 - **1 — sigue abierta y ahora es lo más grave que queda.** El registro público no
   valida el campo `rol`: cualquier cuenta autenticada puede crearse como
   `ingeniero` desde la consola del navegador y saltarse **todo** lo de este
   bloque. El 5b cierra el alcance entre roles legítimos; no cierra la puerta de
   entrada. **Candidata a ser el próximo bloque, antes del 6.**
+
+---
+
+## Bloque 5c — de 'supervisor' a 'maestro' en toda la aplicación
+
+El identificador del rol pasa a llamarse como la persona: **Maestro de Obras**.
+El de `ingeniero` ya era correcto y no se toca.
+
+**Por qué no se dejó para después.** La deuda 3 —los directorios invertidos— se
+difirió dos veces y cobró factura en el bloque 4c: dos archivos subidos a
+`/supervisor/` en vez de `/jefe/` dieron 404 → login, un síntoma que parecía
+cierre de sesión y costó una tarde. Un nombre que miente no envejece bien.
+
+**Por qué son cinco fases y no un bloque.** Datos, reglas y código no pueden
+cambiar juntos. Si las reglas exigen `'maestro'` y un documento todavía dice
+`'supervisor'`, esa cuenta queda sin acceso a nada; al revés, igual. Entre A y D
+las reglas aceptan los dos valores, y esa tolerancia deliberada es lo que hace
+que no exista un solo instante en que alguien no pueda entrar.
+
+| Fase | Qué cambia | Archivos | Estado durante |
+|---|---|---|---|
+| A | Reglas tolerantes: `'supervisor'` **y** `'maestro'` | `firestore.rules` | todo funciona |
+| B | Datos: script migra `usuarios` | 1 script nuevo | todo funciona |
+| C | Código: `roles.js` + 11 consumidores | ~12 | todo funciona |
+| D | Reglas estrictas: solo `'maestro'` | `firestore.rules` | queda cerrado |
+| E | Directorios `/ingeniero/` y `/maestro/` + 49 rutas | ~19 | redirects cubren lo viejo |
+
+**Las fases C y E se pasan de los cinco archivos, y se declara.** La regla existe
+para que la superficie de decisión de un bloque sea chica; acá es **una sola
+decisión aplicada 25 veces**, verificable con un conteo de ocurrencias. Es
+distinto de cinco archivos de lógica nueva.
+
+### Fase A ✅ — reglas tolerantes
+
+`firestore.rules`, un solo cambio de función:
+
+```
+function esMaestro()      // 'maestro' O 'supervisor'  ← el nuevo
+function esSupervisor()   // alias → esMaestro()       ← compatibilidad
+```
+
+El alias existe para que la fase A sea **un cambio de una función y no de once
+llamadas**. Las fases C y E lo retiran. No se le agregan llamadas nuevas.
+
+Esto **no reabre roles viejos**: acepta dos nombres del mismo rol, no dos roles.
+`jefe_cuadrilla` y `admin` siguen sin conceder nada.
+
+⚠️ `esMaestro()` **se estrecha en la fase D**. Si alguien lee esta función con la
+fase D ya cerrada y todavía acepta `'supervisor'`, es que el bloque quedó a
+medias.
+
+### Corrección del 5b aparecida durante la fase A
+
+`public/jefe/mis-tareas-controller.js` rompió con
+`Missing or insufficient permissions` en una pantalla que nadie había tocado.
+**No era la fase A: era el 5b, y habría fallado igual sin ella.**
+
+La causa: ese archivo leía `collection(db, 'proyectos')` **directo**, saltándose
+el repositorio. Cuando se buscaron los consumidores del cambio de alcance, se
+buscaron llamadas a `proyectosRepo.listar()` — y este no aparecía porque no usa
+el repositorio. Una consulta sin filtro hecha por un Maestro de Obras falla
+entera; Firestore no devuelve menos documentos cuando las reglas no alcanzan.
+
+> **Lección.** Saltarse la capa de datos no es un atajo: es un archivo que **no
+> se entera de los cambios de contrato**. Y al medir el radio de un cambio en un
+> repositorio, buscar sus llamadas no alcanza — hay que buscar también a quienes
+> hacen el mismo trabajo por su cuenta.
+
+Mapa completo de los que leen `proyectos` sin pasar por el repo:
+
+| Archivo | Rol | Estado |
+|---|---|---|
+| `jefe/mis-tareas-controller.js` | maestro | **corregido**, ahora usa el repo |
+| `supervisor/dashboard-controller.js` | ingeniero | pasa: su rama no mira `supervisorIds` |
+| `supervisor/nueva-tarea-controller.js` | ingeniero | pasa |
+| `js/exportarExcel.js` · `js/importarExcel.js` | ingeniero (solo desde el dashboard) | pasa |
+
+Los del ingeniero no rompen hoy. Quedan como **deuda 18**.
+
+### Fase B ⬜ — `scripts/migrar-rol-maestro.js`
+
+```
+node scripts/migrar-rol-maestro.js              # simulación
+node scripts/migrar-rol-maestro.js --escribir   # aplica
+```
+
+**No se hace a mano aunque sea un solo usuario.** El script deja constancia,
+verifica después de escribir y es idempotente. Dentro de seis meses, cuando
+alguien pregunte por qué un documento dice `maestro`, la respuesta va a estar en
+el documento y no en la memoria de nadie.
+
+**Campos con nombre propio:** `rolAnteriorMaestro` y `rolMaestroEn`. Los del
+bloque 2 —`rolAnterior`, `rolMigradoEn`— **no se tocan**: sobrescribirlos
+borraría la única evidencia de qué era cada cuenta en el modelo de tres roles.
+
+**Guardas:** aborta si aparece un rol fuera de los tres conocidos, y si el
+resultado dejara cero ingenieros. Backup siempre, incluso en simulación.
+
+⚠️ **No correrlo si la fase A no está desplegada.** Las reglas viejas solo
+reconocen `'supervisor'`.
+
+### Fase C ✅ — `roles.js` + `auth.js`
+
+**Dos archivos, no doce.** Los once consumidores importan `ROL_SUPERVISOR` de
+`roles.js`; convirtiéndolo en alias de `ROL_MAESTRO`, siguen funcionando sin
+tocarlos. Su renombrado es cosmético y se junta con la fase E, que ya los abre a
+todos de todos modos.
+
+```js
+ROL_MAESTRO       // 'maestro'
+ROL_SUPERVISOR    // @deprecated → ROL_MAESTRO. Se retira en la fase E.
+ROLES             // ['ingeniero', 'maestro']  congelado
+normalizarRol(r)  // 'supervisor' → 'maestro'; lo demás, tal cual
+esMaestro(perfil) · esSupervisor (alias) · esIngeniero · esRolValido
+```
+
+`auth.js` normaliza en **un solo punto**, dentro de `obtenerPerfilUsuario()`. De
+ahí para abajo ningún archivo vuelve a ver `'supervisor'`: el perfil que circula
+por toda la app ya trae `'maestro'`.
+
+### El error de diseño de la fase B, y la corrección
+
+La tabla de fases decía que entre B y C **"todo funciona"**. Era falso, y se vio
+al aplicar la fase B: Test 1 quedó migrado a `'maestro'`, las reglas lo
+aceptaban, y aun así no podía entrar a ninguna pantalla — sin un solo error en
+consola, porque el código hacía exactamente lo que estaba escrito.
+
+La causa: **`protegerPagina()` compara el rol en JavaScript, contra `ROLES`.**
+Las reglas del servidor no son el único guardia. `'maestro'` no estaba en esa
+lista, así que el guardia de interfaz rebotaba a quien el servidor dejaba pasar.
+
+> **Lección.** La tolerancia durante una migración tiene que estar en **todos**
+> los guardias, no solo en el del servidor. Un cambio de identificador toca
+> reglas *y* código de autorización, y los dos necesitan aceptar los dos valores
+> durante la ventana. `roles.js` debió volverse tolerante en la fase A, junto con
+> las reglas — no una fase después.
+
+Ahora sí lo es: `normalizarRol()` hace que una cuenta migrada y una sin migrar se
+comporten idéntico, y eso tiene prueba propia.
+
+### Verificación de la fase C
+
+`test/bloque5c.mjs` — **15/15** en Node. La prueba que importa es que los perfiles
+`{rol:'supervisor'}` y `{rol:'maestro'}` dan el mismo resultado en los cuatro
+predicados. También comprueba que la tolerancia **no reabre roles muertos**:
+`jefe_cuadrilla` y `admin` siguen sin conceder nada. Es un rol con dos nombres,
+no dos roles.
+
+Las seis suites anteriores intactas: 22, 15, 24, 19, 18, 16.
