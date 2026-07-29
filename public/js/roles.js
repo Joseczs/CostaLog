@@ -56,6 +56,30 @@ export function normalizarRol(rol) {
   return rol === ROL_MAESTRO_LEGADO ? ROL_MAESTRO : rol;
 }
 
+/**
+ * Puerta ÚNICA para escribir un rol en Firestore.
+ *
+ * ── Por qué existe ────────────────────────────────────────────────────
+ * `normalizarRol()` traduce al LEER, y eso alcanzaba mientras nadie
+ * escribiera. Pero `index.html` tenía `data-rol="supervisor"` literal, así
+ * que cada cuenta nueva nacía con el valor viejo: la fase B migró un
+ * usuario y el formulario seguía fabricando más. Una migración que corre
+ * contra un grifo abierto no termina nunca.
+ *
+ * Normaliza y RECHAZA lo desconocido. No devuelve un rol por defecto a
+ * propósito: un registro con el rol equivocado es una cuenta con permisos
+ * que nadie decidió, y eso tiene que fallar ruidosamente, no acomodarse.
+ *
+ * @throws {Error} si el valor no corresponde a ninguno de los dos roles.
+ */
+export function rolParaGuardar(rol) {
+  const normalizado = normalizarRol(rol);
+  if (!ROLES.includes(normalizado)) {
+    throw new Error(`Rol inválido: ${JSON.stringify(rol)}`);
+  }
+  return normalizado;
+}
+
 /** Etiqueta para la interfaz. Nunca se guarda en Firestore. */
 export const ETIQUETA_ROL = Object.freeze({
   [ROL_INGENIERO]: 'Ingeniero Residente',

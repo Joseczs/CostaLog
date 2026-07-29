@@ -2,6 +2,7 @@ import {
   registrarUsuario, iniciarSesion, obtenerPerfilUsuario, rutaHomePorRol,
   inicializarRecaptcha, enviarCodigoTelefono, confirmarCodigoTelefono
 } from './auth.js';
+import { ROLES, ETIQUETA_ROL, ROL_INGENIERO, ROL_MAESTRO } from './roles.js';
 
 // ── Traduce códigos de error de Firebase a mensajes claros en español ────
 function mensajeError(err) {
@@ -51,7 +52,33 @@ document.querySelectorAll('.metodo-btn').forEach(btn => {
 });
 
 // ── Selector de rol (signup) ──────────────────────────────────────────
+// 5c/C-bis — los botones se generan desde `roles.js`. El identificador y la
+// etiqueta salen de la misma fuente, así que no pueden volver a
+// desincronizarse como pasó con data-rol="supervisor" / "Maestro de Obras".
+//
+// El ícono es presentación pura y vive acá: `roles.js` guarda identidad, no
+// decoración. Un rol sin ícono se pinta sin ícono y sigue funcionando.
+const ICONO_ROL = { [ROL_INGENIERO]: '📐', [ROL_MAESTRO]: '👷' };
+
 const inputRol = document.getElementById('signup-rol');
+const contenedorRoles = document.getElementById('rol-selector');
+
+ROLES.forEach(rol => {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'rol-btn';
+  btn.dataset.rol = rol;
+
+  const icono = document.createElement('span');
+  icono.className = 'rol-icon';
+  icono.textContent = ICONO_ROL[rol] || '';
+
+  const etiqueta = document.createElement('span');
+  etiqueta.textContent = ETIQUETA_ROL[rol];
+
+  btn.append(icono, etiqueta);
+  contenedorRoles.appendChild(btn);
+});
 
 document.querySelectorAll('.rol-btn').forEach(btn => {
   btn.addEventListener('click', () => {

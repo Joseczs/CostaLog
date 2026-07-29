@@ -26,6 +26,7 @@ desactualizado es peor que no tenerlo.
 | 5c/A | Reglas tolerantes (dos valores) | ✅ hecho | desplegada |
 | 5c/B | Datos: rol supervisor → maestro | ✅ hecho | 1 usuario migrado |
 | 5c/C | Código: roles.js + auth.js | ✅ hecho | 15/15 |
+| 5c/C-bis | El registro escribe el rol vigente | ✅ hecho | 17/17 |
 | 5c/D | Reglas estrictas (solo maestro) | ⬜ | — |
 | 5c/E | Directorios y rutas | ⬜ | — |
 | 6 | Extras, créditos y evaluaciones | ⬜ | — |
@@ -1605,3 +1606,109 @@ predicados. También comprueba que la tolerancia **no reabre roles muertos**:
 no dos roles.
 
 Las seis suites anteriores intactas: 22, 15, 24, 19, 18, 16.
+
+
+---
+
+## Bloque 5c/C-bis — el registro deja de escribir el rol viejo ✅
+
+```
+public/js/roles.js              ← EXCEPCIÓN, mismo bloque 5c: rolParaGuardar()
+public/js/auth.js               ← EXCEPCIÓN, mismo bloque 5c
+public/index.html               ← nuevo en el alcance del 5c
+public/js/login-controller.js   ← nuevo en el alcance del 5c
+test/bloque5c-bis.mjs           ← nuevo, fuera del deploy y del conteo
+```
+
+### Lo que estaba roto
+
+`public/index.html` tenía el identificador de rol escrito a mano:
+
+```html
+<button class="rol-btn" data-rol="supervisor">
+  <span>Maestro de Obras</span>      <!-- etiqueta nueva, valor viejo -->
+```
+
+**La fase B migró un usuario mientras el formulario seguía fabricando más
+con el valor viejo.** Una migración que corre contra un grifo abierto no
+termina nunca — y la fase D, que exige cero documentos con `'supervisor'`,
+habría dejado sin acceso a cada cuenta registrada desde entonces.
+
+Era además el único archivo que se saltaba el principio de que ningún
+archivo escribe un identificador de rol salvo `roles.js`. Se saltó porque
+es HTML y no puede importar: por eso el selector ahora lo pinta el
+controlador.
+
+### `roles.js` — una función nueva
+
+```js
+rolParaGuardar(rol)   // → rol vigente · LANZA si no es uno de los dos
+```
+
+**Espejo de `normalizarRol()`:** uno traduce al leer, el otro al escribir.
+Con la lectura sola alcanzaba mientras nadie escribiera; el formulario
+escribía.
+
+**No devuelve un rol por defecto ante basura, lanza.** Un registro con el
+rol equivocado es una cuenta con permisos que nadie decidió. Eso falla
+ruidosamente o no falla nunca. Es distinto de `rutaHomePorRol()`, que sí
+degrada al rol de menos alcance: ahí se elige a dónde mandar a alguien que
+ya existe; acá se decide qué queda escrito en la base.
+
+### Invariantes que no se rompen
+
+- **`auth.js` escribe el rol SOLO por `rolParaGuardar()`.** Los dos caminos
+  de registro —correo y SMS— pasan por `crearDocumentoUsuario`, que es el
+  único punto que toca `usuarios/{uid}`.
+- **El HTML no sabe cómo se llama un rol.** `index.html` deja un contenedor
+  vacío; `login-controller.js` pinta un botón por cada valor de `ROLES`,
+  con su `ETIQUETA_ROL`. Identificador y etiqueta salen de la misma fuente,
+  así que no pueden volver a desincronizarse.
+- **El ícono NO vive en `roles.js`.** Ese archivo guarda identidad, no
+  decoración. Un rol sin ícono se pinta sin ícono y sigue funcionando.
+- **Agregar un rol futuro no toca el HTML.** Sale solo en el selector.
+
+### La prueba que falló, y por qué el código tenía razón
+
+Tres pruebas fallaron en la primera corrida: `index.html` y
+`login-controller.js` "todavía contenían" el valor viejo. El dato crudo
+mostró que las tres ocurrencias estaban **dentro de los comentarios que
+explican el arreglo**. Cero código ejecutable.
+
+La invariante es que ningún archivo **ejecuta** un rol literal, no que
+ninguno lo **menciona**. Se corrigió la prueba —`leerSinComentarios()`— y
+no la documentación: quien grepee `supervisor` dentro de seis meses merece
+encontrar el motivo y no un archivo mudo.
+
+Es el mismo caso del bloque 4c: cuando una expectativa choca con el código,
+primero se verifica la especificación.
+
+### Verificación
+
+- `test/bloque5c-bis.mjs` — **17/17** en Node, sin red.
+- Las siete suites anteriores intactas: 22, 15, 24, 19, 18, 16, 15.
+- Sintaxis verificada en los tres JS tocados.
+
+### ⚠️ Deuda 19 — PRODUCCIÓN ESTÁ ADELANTE DEL REPO
+
+**`firestore.rules` en el repo es ANTERIOR a la fase A.** No contiene
+`esMaestro()` ni acepta `'maestro'` en ningún lado; las reglas desplegadas
+en Firebase sí. La fase A se desplegó sin commitear el archivo.
+
+**Consecuencia inmediata: `firebase deploy --only firestore` desde este
+repo revierte la tolerancia** y deja sin acceso a toda cuenta con
+`rol: 'maestro'` —hoy Test 1, y desde este bloque, cada cuenta nueva que se
+registre como Maestro de Obras—. Sin error visible: pasa el guardia de
+interfaz y la rebotan las reglas.
+
+**Es lo primero que hay que cerrar, antes que la fase D.** Traer las reglas
+desplegadas al repo, verificar que el único delta contra este archivo sea
+la fase A, y commitear. Un archivo de reglas que no es la fuente de verdad
+es peor que no tenerlo — mismo criterio que el encabezado de este documento
+aplica a los contratos.
+
+### Deuda 20 — `scripts/migrar-rol-maestro.js` no está en el repo
+
+La fase B lo dio por hecho y el archivo no existe acá. La fase D lo necesita
+para verificar su precondición —cero documentos con el rol viejo—, así que
+hay que recuperarlo o reescribirlo antes.

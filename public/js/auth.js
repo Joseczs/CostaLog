@@ -7,7 +7,7 @@
 // libre del registro no está respaldada por seguridad. Ver CONTRATOS.md.
 // ═══════════════════════════════════════════════════════════════════════
 
-import { ROL_MAESTRO, HOME_POR_ROL, esRolValido, normalizarRol } from './roles.js';
+import { ROL_MAESTRO, HOME_POR_ROL, esRolValido, normalizarRol, rolParaGuardar } from './roles.js';
 import {
   auth, db,
   onAuthStateChanged, signInWithEmailAndPassword,
@@ -42,7 +42,11 @@ export async function iniciarSesion(email, password) {
 async function crearDocumentoUsuario(uid, { nombre, email, telefono, rol }) {
   const datosUsuario = {
     nombre,             // ⚠️ ÚNICO identificador visible del usuario en toda la app.
-    rol,                // ROL_INGENIERO | ROL_MAESTRO  (ver roles.js)
+    // 5c/C-bis — el rol pasa por `rolParaGuardar()`, nunca crudo. Es el
+    // espejo de `normalizarRol()` en `obtenerPerfilUsuario()`: uno traduce
+    // al leer, el otro al escribir. Sin este, un valor viejo o inventado
+    // entraba tal cual y la fase D lo dejaba sin acceso a nada.
+    rol: rolParaGuardar(rol),
     activo: true,
     createdAt: serverTimestamp()
   };
