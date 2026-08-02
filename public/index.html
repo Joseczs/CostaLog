@@ -64,14 +64,12 @@
       <input type="text" id="signup-nombre" required placeholder="Tu nombre">
 
       <label>¿Cuál es tu rol?</label>
-      <div class="rol-selector">
-        <button type="button" class="rol-btn" data-rol="ingeniero">
-          <span class="rol-icon">📐</span><span>Ingeniero Residente</span>
-        </button>
-        <button type="button" class="rol-btn" data-rol="supervisor">
-          <span class="rol-icon">👷</span><span>Maestro de Obras</span>
-        </button>
-      </div>
+      <!-- Los botones los pinta login-controller.js desde roles.js.
+           Estaban escritos a mano acá y uno decía data-rol="supervisor":
+           el valor viejo con la etiqueta nueva. Cada cuenta que se
+           registraba como Maestro de Obras nacía con el rol equivocado.
+           Ningún archivo escribe un identificador de rol salvo roles.js. -->
+      <div class="rol-selector" id="rol-selector"></div>
       <input type="hidden" id="signup-rol" required>
 
       <!-- Registro por correo -->
