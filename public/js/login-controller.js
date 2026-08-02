@@ -2,7 +2,7 @@ import {
   registrarUsuario, iniciarSesion, obtenerPerfilUsuario, rutaHomePorRol,
   inicializarRecaptcha, enviarCodigoTelefono, confirmarCodigoTelefono
 } from './auth.js';
-import { ROLES, ETIQUETA_ROL, ROL_INGENIERO, ROL_MAESTRO } from './roles.js';
+import { ROLES_REGISTRO, ETIQUETA_ROL, ROL_INGENIERO, ROL_MAESTRO } from './roles.js';
 
 // ── Traduce códigos de error de Firebase a mensajes claros en español ────
 function mensajeError(err) {
@@ -101,7 +101,16 @@ function pintarSelectorDeRoles() {
   const contenedor = contenedorDeRoles();
   contenedor.replaceChildren();   // idempotente: nunca duplica botones
 
-  ROLES.forEach(rol => {
+  // 5d — se pinta desde ROLES_REGISTRO, no desde ROLES. El `ingeniero`
+  // sigue existiendo; lo que deja de existir es dárselo uno mismo.
+  const seleccionar = (btn, rol) => {
+    contenedor.querySelectorAll('.rol-btn')
+      .forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    inputRol.value = rol;
+  };
+
+  ROLES_REGISTRO.forEach(rol => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'rol-btn';
@@ -118,14 +127,16 @@ function pintarSelectorDeRoles() {
 
     // El manejador se ata al crear el botón, no con un querySelectorAll
     // posterior: así no hay forma de pintar un botón sin su manejador.
-    btn.addEventListener('click', () => {
-      contenedor.querySelectorAll('.rol-btn')
-        .forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
-      inputRol.value = rol;
-    });
+    btn.addEventListener('click', () => seleccionar(btn, rol));
 
     contenedor.appendChild(btn);
+
+    // Con un solo rol elegible, elegirlo no es una decisión: es un paso
+    // que solo se puede hacer mal. Se preselecciona y se sigue viendo, que
+    // es lo que importa — la persona tiene que saber con qué rol entra.
+    // El día que ROLES_REGISTRO vuelva a tener dos, esto no se activa y el
+    // selector vuelve a pedir una elección sin tocar una línea.
+    if (ROLES_REGISTRO.length === 1) seleccionar(btn, rol);
   });
 }
 

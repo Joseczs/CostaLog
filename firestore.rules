@@ -82,6 +82,32 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos);
     }
 
+    // Espejo del anterior: la escritura NO toca ninguno de estos campos,
+    // haga lo que haga con el resto. Bloque 5d.
+    function noToca(campos) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(campos);
+    }
+
+    // ── Bloque 5d — con qué rol nace una cuenta ────────────────────────
+    //
+    // El campo tiene que estar presente Y valer 'maestro'. Un documento
+    // sin `rol` obligaría a cada guardia a manejar un tercer estado que
+    // hoy no existe; mismo criterio que `rutaHomePorRol` y `renderSidebar`
+    // en el código: ante ambigüedad se degrada al rol de MENOS alcance.
+    //
+    // ⚠️ ESPEJO DE `ROLES_REGISTRO` en public/js/roles.js. Si las dos
+    // dejaran de coincidir, el formulario ofrecería un rol que esta regla
+    // rechaza. Se cambian juntas o no se cambia ninguna.
+    //
+    // El literal vive acá adentro y no suelto en el `allow`, igual que los
+    // dos de `esIngeniero()` y `esMaestro()`. Es una comparación distinta
+    // de aquellas: no lee quién sos (`perfil().rol`), lee qué estás
+    // escribiendo (`request.resource.data.rol`).
+    function naceComoMaestro() {
+      return 'rol' in request.resource.data
+             && request.resource.data.rol == 'maestro';
+    }
+
     // ── Alcance por supervisor (bloque 5b) ──────────────────────────────
     //
     // La asimetría es deliberada: el ingeniero ve TODO —define el alcance
@@ -131,16 +157,39 @@ service cloud.firestore {
     // Lectura abierta a usuarios autenticados: el Ingeniero necesita
     // listar supervisores para asignarles tareas.
     //
-    // ⚠️ DEUDA DECLARADA (Hallazgo 2, diferida a otro bloque): `create` no
-    // valida el campo `rol`. Cualquier cuenta autenticada puede crearse a
-    // sí misma como 'ingeniero' desde la consola del navegador y quedar
-    // habilitada para aprobar su propio % de avance y cerrar metas.
-    // Mientras esto siga abierto, el contrapeso de D-11 es de interfaz,
-    // no de seguridad.
+    // ── BLOQUE 5d — la deuda 1 queda CERRADA ───────────────────────────
+    //
+    // Antes: `create` no miraba el campo `rol` y `update` dejaba al propio
+    // usuario reescribir su documento entero. Cualquier cuenta autenticada
+    // podía crearse —o ascenderse— a 'ingeniero' desde la consola del
+    // navegador y quedar habilitada para aprobar su propio % de avance y
+    // cerrar metas. Mientras eso estuvo abierto, el contrapeso de D-11 fue
+    // de interfaz y no de seguridad.
+    //
+    // Son DOS agujeros, no uno. Cerrar solo el `create` habría dejado el
+    // otro abierto con una regla nueva encima dando la impresión de que se
+    // cerró — peor que la deuda declarada.
+    //
+    // `activo` va junto a `rol` a propósito: `habilitado()` lo mira. Si el
+    // Ingeniero desactiva una cuenta y su dueño puede reescribir
+    // `activo: true`, la desactivación es decorativa. Mismo agujero, misma
+    // línea.
+    //
+    // Hoy NINGUNA pantalla hace `update` sobre este documento —el único
+    // escritor es el registro, en auth.js—. La rama del propio usuario se
+    // deja escrita igual, con la exclusión puesta: el día que aparezca
+    // "editar mi perfil", quien la use hereda la protección en vez de
+    // tener que acordarse de ella. Que es exactamente como nació la deuda.
+    //
+    // Promover a 'ingeniero' es un `update` de otro ingeniero. No hay
+    // pantalla: es consola o script (deuda 23). En una instalación NUEVA,
+    // sin ningún ingeniero, nadie puede llegar a serlo desde la app — el
+    // primero se crea con el SDK admin, que no pasa por reglas.
     match /usuarios/{uid} {
       allow read:   if autenticado();
-      allow create: if esElMismoUsuario(uid);
-      allow update: if esElMismoUsuario(uid) || esIngeniero();
+      allow create: if esElMismoUsuario(uid) && naceComoMaestro();
+      allow update: if esIngeniero()
+                       || (esElMismoUsuario(uid) && noToca(['rol', 'activo']));
       allow delete: if false;
 
       // ── /usuarios/{supervisorUid}/empleados/{empleadoId} ─────────────

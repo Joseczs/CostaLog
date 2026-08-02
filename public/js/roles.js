@@ -38,6 +38,30 @@ const ROL_MAESTRO_LEGADO = 'supervisor';
 export const ROLES = Object.freeze([ROL_INGENIERO, ROL_MAESTRO]);
 
 /**
+ * Los roles que el formulario público puede OFRECER al registrarse.
+ *
+ * ── Por qué es una lista distinta de ROLES ────────────────────────────
+ * `ROLES` es quién puede existir; esto es quién puede darse de alta solo.
+ * No son lo mismo: el `ingeniero` sigue siendo un rol vigente —aprueba
+ * avances, cierra metas, cobra— pero nadie se lo puede auto-asignar.
+ *
+ * Bloque 5d: hasta hoy `allow create` de `usuarios/{uid}` no miraba el
+ * campo `rol`, así que cualquier cuenta autenticada podía crearse como
+ * ingeniero desde la consola del navegador y quedar habilitada para
+ * aprobar su propio % de avance. El contrapeso de D-11 era de interfaz.
+ *
+ * ⚠️ ESTO ES EL ESPEJO DE LA REGLA `naceComoMaestro()` en
+ * `firestore.rules`. Si las dos dejaran de coincidir, el formulario
+ * ofrecería un rol que el servidor rechaza — y el error le saldría a la
+ * persona que se registra, no a quien lo desincronizó. Se cambian juntas
+ * o no se cambia ninguna.
+ *
+ * Promover a `ingeniero` es un `update` que solo puede hacer otro
+ * ingeniero. Hoy no hay pantalla: es consola o script (deuda 23).
+ */
+export const ROLES_REGISTRO = Object.freeze([ROL_MAESTRO]);
+
+/**
  * Traduce el valor guardado al vigente.
  *
  * ── Por qué esto existe ───────────────────────────────────────────────
