@@ -28,7 +28,7 @@ desactualizado es peor que no tenerlo.
 | 5c/C | Código: roles.js + auth.js | ✅ hecho | 15/15 |
 | 5c/C-bis | El registro escribe el rol vigente | ✅ hecho | 21/21 |
 | 5c/textos | Un nombre por rol en la interfaz | ✅ hecho | 7/7 |
-| 5c/D | Reglas estrictas (solo maestro) | ✅ hecho | 13/13 + simulador pendiente |
+| 5c/D | Reglas estrictas (solo maestro) | ✅ hecho | 13/13 + 4/4 en producción |
 | 5c/E | Directorios y rutas | ⬜ | — |
 | 5d | Cerrar deuda 1 (registro valida `rol`) | ⬜ | — |
 | 6 | Extras, créditos y evaluaciones | ⬜ | — |
@@ -1885,6 +1885,12 @@ consola** con las cuentas reales. Y antes de eso, la precondición:
 
 - **19 — CERRADA.** El repo vuelve a ser la fuente de verdad de las reglas.
 - **20 — CERRADA.** `migrar-rol-maestro.js` existe.
+- **22 — nueva** `scripts/probar-reglas.js`. Reemplaza el Simulador de la
+  consola para probar reglas: fabrica sesiones reales con `firebase-admin`
+  y lee con el SDK de cliente. Requiere `firebase` y `firebase-admin`
+  declarados en `package.json` — antes ninguna dependencia estaba
+  declarada, y eso fue lo que hizo que `npm install firebase --no-save` se
+  llevara puesto `firebase-admin`. Reutilizable para el 5d.
 - **21 — `roles.js` es MÁS tolerante que las reglas.** `normalizarRol()`
   sigue traduciendo `'supervisor'` → `'maestro'`, pero el servidor ya no le
   concede nada a ese valor. Un documento rezagado pasaría el guardia de
