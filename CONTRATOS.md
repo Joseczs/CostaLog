@@ -30,7 +30,7 @@ desactualizado es peor que no tenerlo.
 | 5c/textos | Un nombre por rol en la interfaz | ✅ hecho | 7/7 |
 | 5c/D | Reglas estrictas (solo maestro) | ✅ hecho | 13/13 + 4/4 en producción |
 | 5c/E | Directorios y rutas | ⬜ | — |
-| 5d | Cerrar deuda 1 (registro valida `rol`) | ⬜ | — |
+| 5d | Registro no asigna rol (deuda 1) | ✅ hecho | 25/25 + 8/8 en producción |
 | 6 | Extras, créditos y evaluaciones | ⬜ | — |
 | 7 | Tareas BP + migración de pesos | ⬜ | — |
 | 8 | Pagos y exportación Excel | ⬜ | — |
@@ -1903,3 +1903,204 @@ consola** con las cuentas reales. Y antes de eso, la precondición:
   mitades —regla y UI— y tienen que desplegarse en orden: primero la UI que
   deja de ofrecerlo, después la regla. Mezclarlas en un bloque garantiza que
   alguien las despliegue juntas.
+---
+
+## Bloque 5d/0 — el arreglo del 5c/C-bis estaba en el archivo equivocado ✅
+
+Antes de tocar nada del 5d apareció esto, y bloqueaba el bloque entero.
+
+**`public/index.html` —el que Netlify publica— conservaba los dos botones de
+rol escritos a mano, uno con `data-rol="supervisor"`.** Sin tocar desde el
+bloque 2:
+
+```
+git log --oneline -- public/index.html
+1c297e0 Bloque 2: restaurar dos roles (ingeniero/supervisor) + reglas Firestore
+```
+
+El archivo corregido existía, pero era `index.html` **en la raíz del repo**,
+creado en el commit del 5c/D. `netlify.toml` dice `publish = "public"`: ese
+archivo no se sirve nunca.
+
+**Por qué producción no rompió.** `contenedorDeRoles()` no encontraba
+`#rol-selector`, caía al `querySelector('.rol-selector')` —que sí existía en el
+HTML viejo—, lo devolvía sin avisar por consola, y `replaceChildren()` borraba
+los dos botones a mano antes de repintar desde `roles.js`. El registro escribía
+`'maestro'` correctamente. **La guarda puesta para que un desfase no matara la
+página estaba tapando exactamente el desfase que fue diseñada para sobrevivir.**
+Funcionó como red, no como aviso.
+
+`test/bloque5c-bis.mjs` lo decía desde el primer día: daba **18/21**, no 21/21,
+y los tres fallos eran los tres que leen `public/index.html`.
+
+**Corrección:** se copió el contenido bueno sobre `public/index.html` y se borró
+`index.html` de la raíz con `git rm`. Dejar los dos garantizaba que la próxima
+persona que abriera "index.html" volviera a editar el muerto.
+
+> **Regla para la próxima.** Una guarda defensiva que se activa en silencio
+> esconde la condición que la activó. Si `contenedorDeRoles()` hubiera fallado
+> ruidosamente en vez de encontrar el contenedor viejo por casualidad, esto se
+> habría visto el mismo día. Cuando una guarda tiene una rama de "esto no
+> debería pasar", esa rama avisa.
+
+> **Y la otra.** El único archivo que Netlify publica es el de `public/`. Un
+> archivo de la raíz con el mismo nombre no es un respaldo: es un señuelo.
+
+---
+
+## Bloque 5d — el rol no se lo asigna uno mismo ✅
+
+Cierra la **deuda 1**, abierta desde el bloque 2 y la más grave que quedaba.
+
+```
+public/index.html               ← 5d/0: portado el arreglo del 5c/C-bis
+public/js/roles.js              ← EXCEPCIÓN declarada (bloque 2/5c): ROLES_REGISTRO
+public/js/login-controller.js   ← pinta desde ROLES_REGISTRO, preselecciona
+firestore.rules                 ← naceComoMaestro() + noToca() en create y update
+scripts/probar-reglas.js        ← EXCEPCIÓN declarada (deuda 22): 4 casos nuevos
+test/bloque5d.mjs               ← nuevo, fuera del deploy y del conteo
+git rm index.html               ← borrado de un archivo creado por error
+```
+
+Cinco archivos. `roles.js` es excepción por el mismo criterio que en el
+5c/C-bis: es la única fuente de identidad de rol y el cambio es aditivo.
+`probar-reglas.js` se extiende, no se reemplaza — es lo que dice la deuda 22.
+
+### Las decisiones, cerradas antes del código
+
+**D-5d-01 · Una cuenta nace `'maestro'`, obligatorio.** El campo tiene que estar
+presente y valer eso. Un documento sin `rol` obligaría a cada guardia a manejar
+un tercer estado que hoy no existe; mismo criterio que `rutaHomePorRol` y
+`renderSidebar`, que ante ambigüedad degradan al rol de **menos** alcance.
+
+`activo` queda fuera del alcance de `create`, declarado: una cuenta que naciera
+con `activo: false` solo se deja afuera a sí misma.
+
+**D-5d-02 · Promueve un `ingeniero`, y hoy sin pantalla.** Es la rama
+`esIngeniero()` del `update`. Hay 2 ingenieros vivos, así que no hay riesgo de
+quedarse sin quién promueva. **Deuda 23.**
+
+Consecuencia que conviene tener escrita antes de descubrirla un lunes: **en una
+instalación nueva, sin ningún ingeniero, nadie puede llegar a serlo desde la
+aplicación.** El primero se crea con el SDK admin, que no pasa por reglas.
+
+**D-5d-03 · El `update` también, y con `activo` adentro.** La deuda estaba
+redactada como si el agujero fuera el `create`. No lo era:
+`allow update: if esElMismoUsuario(uid) || esIngeniero()` dejaba al propio
+usuario reescribir su documento entero, `rol` incluido.
+
+**Hoy ninguna pantalla hace `update` sobre `usuarios/{uid}`.** El único escritor
+es el registro, en `auth.js`. Todo lo demás toca la subcolección `empleados`.
+Con cero consumidores la tentación era `allow update: if esIngeniero()` a secas.
+No se hizo: el día que aparezca "editar mi perfil", alguien va a reabrir esa
+rama sin saber que `rol` tenía que quedar afuera — que es literalmente cómo
+nació esta deuda. **La protección va escrita en el renglón, no en la ausencia
+del renglón.**
+
+`activo` entra junto con `rol` porque `habilitado()` lo mira: si el Ingeniero
+desactiva una cuenta y su dueño puede reescribir `activo: true`, la
+desactivación es decorativa. Mismo agujero, misma línea.
+
+**D-5d-04 · Las cuentas existentes se verifican, no se tocan.** La regla nueva
+no las alcanza. Línea base confirmada antes de desplegar con
+`migrar-rol-maestro.js`: **2 ingenieros, 2 maestros, cero con el rol viejo.**
+Si algún día aparece un tercer ingeniero, hay fecha desde la cual eso no debería
+haber podido pasar.
+
+**D-5d-05 · `ROLES_REGISTRO`, y la preselección.** `ROLES` no se podía tocar: lo
+usan `protegerPagina`, `rutaHomePorRol` y el sidebar. Hace falta un concepto
+distinto — `ROLES` es quién puede existir; `ROLES_REGISTRO` es quién puede darse
+de alta solo. **El `ingeniero` sigue siendo un rol vigente; lo que deja de
+existir es dárselo uno mismo.**
+
+Con un solo rol elegible el botón se **preselecciona** y se sigue pintando: un
+botón obligatorio de opción única es un paso que solo se puede hacer mal, pero
+la persona tiene que saber con qué rol entra. El día que `ROLES_REGISTRO` vuelva
+a tener dos, la preselección no se activa y el selector vuelve a pedir una
+elección sin tocar una línea.
+
+**D-5d-06 · Las escrituras se prueban contra un uid fabricado.** Los cuatro
+casos del bloque escriben: el caso 6 da de alta un usuario y el 8 promueve a
+alguien. Sobre una base con 4 cuentas eso no se hace. Los cuatro corren
+**encadenados sobre `zz-prueba-reglas-5d`**, y ninguna cuenta real se escribe.
+
+### Invariantes que no se rompen
+
+- **`ROLES_REGISTRO` y `naceComoMaestro()` son espejo.** Si dejaran de coincidir,
+  el formulario ofrecería un rol que el servidor rechaza — y el error le saldría
+  a quien se registra, no a quien lo desincronizó. Tiene prueba que compara el
+  literal de la regla contra `ROLES_REGISTRO[0]`.
+- **Siguen habiendo solo DOS lecturas de rol del perfil** (`perfil().rol ==`),
+  una por rol dentro de su helper. La comparación del 5d es distinta y no cuenta
+  para esa invariante: no lee quién sos, lee qué estás escribiendo.
+- **El literal de `create` vive dentro de un helper con nombre**, no suelto en el
+  `allow`, igual que los dos de `esIngeniero()` y `esMaestro()`.
+- **`noToca()` es el espejo de `soloCambia()`**: `hasAny` negado, no `hasOnly`.
+- **El alcance del 5b quedó intacto** — `estaEnLaLista`, `puedeVerEsteProyecto`,
+  `puedeVerProyecto` sin tocar, con su fail-closed.
+- **Cero borrado duro**, en los mismos documentos. Con **una excepción declarada
+  y acotada:** la limpieza de `probar-reglas.js` borra con el SDK admin el
+  documento y la cuenta de Auth que la propia prueba fabricó. Nunca el
+  histórico, y las reglas siguen negando `delete` a la aplicación en los nueve.
+- **`signInWithCustomToken` con un uid inexistente CREA la cuenta en Auth.** Por
+  eso la limpieza borra las dos cosas, corre al arrancar —por si una corrida
+  anterior murió a la mitad— y va en un `finally`.
+
+### Orden de despliegue — importa, y va al revés que siempre
+
+```
+0.  public/index.html al día + git rm index.html      →  git push
+1.  ROLES_REGISTRO + selector                         →  git push
+2.  node scripts/migrar-rol-maestro.js                →  2 / 2 / 0
+3.  firebase deploy --only firestore                  →  desde cmd
+4.  node scripts/probar-reglas.js                     →  8/8
+```
+
+**Los pasos 1 y 3 no se pueden invertir.** La regla rechazaría lo que el
+formulario sigue ofreciendo, y el registro quedaría roto entre un despliegue y
+el otro. Es la única vez que la UI va antes que las reglas: acá la UI se
+restringe a sí misma, no pide un permiso nuevo.
+
+### Verificación
+
+- `test/bloque5d.mjs` — **25/25** en Node, sin red. Fija la **forma** de las
+  reglas, no su comportamiento: las reglas no se ejecutan en Node.
+- `scripts/probar-reglas.js` — **8/8** contra las reglas desplegadas, con
+  sesiones reales. Los 4 casos de lectura del 5b/5c más los 4 de escritura:
+
+  | Caso | Esperado |
+  |---|---|
+  | crearse a sí mismo como `ingeniero` | denegado |
+  | crearse a sí mismo como `maestro` | permitido |
+  | **promoverse a sí mismo con `update` de `rol`** | **denegado** |
+  | un ingeniero promoviendo a otra cuenta | permitido |
+
+- Las diez suites anteriores intactas: 22, 15, 24, 19, 18, 16, 15, **21**, 7, 13.
+  La octava vuelve a 21/21 con el 5d/0; venía dando 18/21.
+
+### La prueba que falló, y por qué el código tenía razón
+
+`activo está protegido junto con rol` falló en la primera corrida. El dato crudo
+mostró que la prueba buscaba la primera línea con `noToca(` y agarraba la
+**definición** de la función, no la invocación del `allow`. Se corrigió la
+prueba —busca `noToca([`— y no el código. Mismo caso del 4c y del 5c/C-bis:
+cuando una expectativa choca con el código, primero se verifica la
+especificación.
+
+### Deuda
+
+- **1 — CERRADA.** Era la más grave que quedaba abierta. El contrapeso de D-11
+  vuelve a ser de seguridad y no de interfaz.
+- **23 — nueva: promover a `ingeniero` no tiene pantalla.** Es consola o script.
+  Candidata natural a juntarse con el **5b-2**, que ya es la pantalla de
+  asignaciones y ya abre el territorio de "administrar cuentas".
+- **22 — sigue vigente y ahora tiene precedente.** `probar-reglas.js` se
+  extendió con modo escritura; el próximo caso de reglas se agrega ahí, no en un
+  mecanismo nuevo.
+- **21 — `roles.js` sigue siendo más tolerante que las reglas.** Va con la fase
+  E, que ya abre el archivo para retirar `ROL_SUPERVISOR`.
+- **Nota de proceso.** `scripts/probar-reglas.js` con los 4 casos de escritura
+  quedó commiteado dentro de `5f0c40e` ("Cierre de commit pendiente del 5c/D"),
+  no en el commit propio del 5d. El contenido es correcto y no afecta ningún
+  resultado, pero es un bloque mezclado con otro en el historial — se declara
+  en vez de dejarlo pasar.
