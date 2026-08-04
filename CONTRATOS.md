@@ -29,7 +29,7 @@ desactualizado es peor que no tenerlo.
 | 5c/C-bis | El registro escribe el rol vigente | ✅ hecho | 21/21 |
 | 5c/textos | Un nombre por rol en la interfaz | ✅ hecho | 7/7 |
 | 5c/D | Reglas estrictas (solo maestro) | ✅ hecho | 13/13 + 4/4 en producción |
-| 5c/E | Directorios y rutas | ⬜ | — |
+| 5c/E | Directorios y rutas | ✅ hecho | 13/13 + checklist en producción |
 | 5d | Registro no asigna rol (deuda 1) | ✅ hecho | 25/25 + 8/8 en producción |
 | 6 | Extras, créditos y evaluaciones | ⬜ | — |
 | 7 | Tareas BP + migración de pesos | ⬜ | — |
@@ -2104,3 +2104,167 @@ especificación.
   no en el commit propio del 5d. El contenido es correcto y no afecta ningún
   resultado, pero es un bloque mezclado con otro en el historial — se declara
   en vez de dejarlo pasar.
+---
+
+## Bloque 5c/E — renombrado de directorios ✅
+
+Cierra la deuda 3, abierta desde el bloque 2, y la deuda 21.
+
+```
+public/supervisor/ → public/ingeniero/   (git mv, 17 archivos)
+public/jefe/        → public/maestro/    (git mv, 8 archivos)
+netlify.toml                             ← dos redirects, antes del catch-all
+public/js/roles.js                       ← ROL_SUPERVISOR y esSupervisor retirados,
+                                            HOME_POR_ROL apunta a los nombres nuevos
+scripts/renombrar-rutas-5ce.js           ← nuevo, simulación/escritura
+test/bloque5ce.mjs                       ← nuevo, 13 pruebas
+
+EXCEPCIONES declaradas, todas de otros bloques ya cerrados:
+test/bloque5c.mjs        ← retira 3 pruebas obsoletas de la fase C
+test/bloque5c-textos.mjs ← 3 rutas hardcodeadas sin barra inicial
+test/bloque3.mjs, bloque4b.mjs, bloque4c.mjs, bloque5.mjs
+                          ← imports de módulo actualizados a los directorios nuevos
+```
+
+Es "una sola decisión aplicada muchas veces", como dice el propio plan de
+desarrollo — por eso no cuenta contra el máximo de cinco. La decisión es una:
+`/supervisor/`→`/ingeniero/`, `/jefe/`→`/maestro/`, `ROL_SUPERVISOR`→`ROL_MAESTRO`.
+Se aplicó con un script de simulación/escritura, no a mano, sobre **25 archivos
+de contenido** dentro de `public/` (45 reemplazos) más **4 archivos de prueba**
+(6 reemplazos) que importan módulos por ruta relativa.
+
+### Las decisiones, cerradas antes del código
+
+**D-5ce-01 · Dónde queda `bono-resumen.html`, que abren los dos roles.**
+
+Se muda a `/ingeniero/` junto con el resto, sin tercer directorio. Mismo
+criterio que ya declaró el bloque 5: **la carpeta no es frontera de
+permisos, el guardia es `protegerPagina()`.** Crear `/comun/` habría agregado
+una decisión de diseño nueva a un bloque que tenía que seguir siendo mecánico.
+
+**D-5ce-02 · Todo en un solo push, no en dos deploys.**
+
+El `git mv`, el renombrado de rutas internas y los redirects de `netlify.toml`
+van en el mismo commit. Desplegar el redirect *antes* que el `git mv` real
+habría dejado, por un instante, un redirect apuntando a una carpeta que
+todavía no existe. El redirect tiene que estar vivo en el mismo momento en
+que la ruta vieja deja de estarlo — nunca antes, nunca después.
+
+**D-5ce-03 · El renombrado se aplica con script, no a mano.**
+
+Con 25+ archivos de por medio, a mano es exactamente donde se cuela un error
+de tipeo que nadie nota hasta el primer 404 en producción. El script sigue
+el mismo patrón que `migrar-*.js`: simulación primero, conteo real,
+escritura después.
+
+### Lo que el script NO tocó, y por qué — el hallazgo real de este bloque
+
+Un reemplazo ciego de `/supervisor/` y `/jefe/` en todo el repo habría
+corrompido tres pruebas **sin ningún error de sintaxis que lo delatara**:
+
+1. **`test/bloque5c-bis.mjs`** — dos líneas usan `/supervisor/i` como
+   **delimitador de expresión regular** (verificar que la palabra
+   "supervisor" no aparezca en ningún texto), no como ruta. Un reemplazo
+   ciego las habría vuelto `/ingeniero/i` — cambiando qué verifica la
+   prueba, calladamente. Excluido del script; cero rutas reales que perder.
+2. **`test/bloque5cd.mjs`** — su `ROL_SUPERVISOR` es el nombre de una
+   **variable local dentro de `scripts/migrar-supervisor-ids.js`** (bloque
+   5c/D, ya cerrado), sin relación con el export de `roles.js` que se
+   retira acá. Excluido del script.
+3. **`test/bloque5c-textos.mjs`** — tres rutas construidas con
+   `join(publico, 'supervisor/dashboard.html')`, sin barra inicial: el
+   patrón del script (que exige barra antes Y después) no las alcanzaba.
+   Se corrigieron a mano, con el contexto completo revisado primero.
+
+> **Regla para la próxima.** Un script de renombrado mecánico necesita un
+> barrido de verificación después, no solo un conteo antes/después que
+> cuadre. `/supervisor/i` y `'supervisor/dashboard.html'` son dos formas
+> de que el mismo string dejara de ser lo que el patrón asumía que era, y
+> ninguna de las dos rompe la sintaxis al reemplazarse mal — rompen el
+> *significado* de la prueba, que es más difícil de notar.
+
+### `public/js/roles.js` — lo que cambió
+
+`ROL_SUPERVISOR` y `esSupervisor` se retiran: cumplieron el plazo que su
+propio comentario anunciaba desde la fase C ("se retira en la fase E"). Los
+8 consumidores que los importaban (`ROL_MAESTRO` en su lugar) ya no
+colisionan con ningún import existente — verificado antes de tocar nada:
+ningún archivo importaba los dos a la vez.
+
+`HOME_POR_ROL` pierde la nota de deuda y apunta a los nombres reales:
+
+```js
+export const HOME_POR_ROL = Object.freeze({
+  [ROL_INGENIERO]: '/ingeniero/dashboard.html',
+  [ROL_MAESTRO]: '/maestro/mis-tareas.html',
+});
+```
+
+### `test/bloque5c.mjs` — tres pruebas retiradas, con excepción declarada
+
+Tocar el archivo de prueba de un bloque cerrado (fase C) rompe la regla de
+"un bloque nunca modifica los archivos de otro" — salvo que, como acá, el
+propio bloque anunció su vencimiento desde el día en que se escribió. Se
+retiraron:
+
+- `'ROL_SUPERVISOR sobrevive como alias y apunta al nuevo'`
+- `'esSupervisor sigue siendo el mismo predicado que esMaestro'`
+
+Y se reescribió `'cada rol tiene su home, y los directorios siguen
+invertidos'` → `'cada rol tiene su home, con los nombres del bloque 5c/E'`,
+ya que la inversión que documentaba dejó de existir.
+
+### netlify.toml — los dos redirects
+
+```
+[[redirects]]
+  from = "/supervisor/*"
+  to = "/ingeniero/:splat"
+  status = 301
+
+[[redirects]]
+  from = "/jefe/*"
+  to = "/maestro/:splat"
+  status = 301
+
+[[redirects]]              ← el catch-all sigue después, no antes
+  from = "/*"
+  to = "/index.html"
+  status = 404
+```
+
+Netlify evalúa de arriba hacia abajo y se queda con la primera coincidencia:
+si el catch-all fuera primero, se comería los dos redirects específicos.
+
+### Invariantes que no se rompen
+
+- **Cero `/supervisor/` o `/jefe/` fuera de `netlify.toml`** — ahí se
+  conservan a propósito, como origen del redirect.
+- **El campo `jefeCuadrillaId` de `tareas` conserva su nombre.** Es
+  migración de datos, no de rutas; pertenece al bloque 7 y no se mezcló acá.
+- **La columna de Excel "Jefe de Cuadrilla" sigue sin tocarse.** Contrato
+  de intercambio con las plantillas de la obra; tiene su propia prueba en
+  `bloque5c-textos.mjs` que exige que NO cambie.
+- **Los dos roles siguen vigentes.** Esto no fue "eliminar el ingeniero" —
+  fue renombrar dónde vive cada uno.
+
+### Verificación
+
+- `test/bloque5ce.mjs` — **13/13** en Node, sin red. Es la prueba de
+  aceptación del plan, en código: cero ocurrencias de las rutas viejas
+  fuera de `netlify.toml`, los redirects en el orden correcto, `roles.js`
+  consistente.
+- Las once suites anteriores intactas, con dos ajustadas por el motivo
+  correcto (retiro de pruebas obsoletas, no un bug):
+  22 · 15 · 24 · 19 · 18 · 16 · **13** (era 15, dos pruebas obsoletas
+  retiradas) · 21 · 7 · 13 · 25.
+- Checklist visual pendiente en producción: las dos cuentas navegan el
+  menú completo sin un solo 404, y un enlace viejo a `/supervisor/dashboard.html`
+  o `/jefe/mis-tareas.html` redirige en vez de romperse.
+
+### Deuda
+
+- **3 — CERRADA.** Los directorios ya no mienten: `/ingeniero/` es del
+  Ingeniero Residente, `/maestro/` es del Maestro de Obras.
+- **21 — CERRADA.** `roles.js` ya no es más tolerante que las reglas: el
+  alias que sobrevivía solo en código se retiró.
