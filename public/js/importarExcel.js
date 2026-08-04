@@ -7,7 +7,7 @@
 // estado "incompleto" y se avisa al Supervisor (advertencia ámbar).
 // ═══════════════════════════════════════════════════════════════════════
 
-import { ROL_SUPERVISOR } from './roles.js';
+import { ROL_MAESTRO } from './roles.js';
 import {
   db, collection, addDoc, getDocs, query, where, serverTimestamp
 } from './firebase-config.js';
@@ -89,7 +89,7 @@ async function validarFilas(filas) {
     if (p.activo !== false) proyectosPorNombre[p.nombre] = d.id; // ignora soft-deleted
   });
 
-  const jefesSnap = await getDocs(query(collection(db, 'usuarios'), where('rol', '==', ROL_SUPERVISOR)));
+  const jefesSnap = await getDocs(query(collection(db, 'usuarios'), where('rol', '==', ROL_MAESTRO)));
   const jefesPorNombre = {};
   jefesSnap.forEach(d => { jefesPorNombre[d.data().nombre] = d.id; });
 

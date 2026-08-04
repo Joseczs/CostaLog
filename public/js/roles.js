@@ -20,16 +20,6 @@ export const ROL_INGENIERO = 'ingeniero';
 /** Maestro de Obras ≡ Jefe de Cuadrilla. Ejecuta en sitio. Propone el avance. */
 export const ROL_MAESTRO = 'maestro';
 
-/**
- * @deprecated Alias del bloque 5c. Apunta a `ROL_MAESTRO`.
- *
- * Existe para que la fase C sea DOS archivos y no doce: los once
- * consumidores lo siguen importando y siguen funcionando. Se retira en la
- * fase E, junto con el renombrado de directorios, que ya los toca a todos.
- * No agregar usos nuevos.
- */
-export const ROL_SUPERVISOR = ROL_MAESTRO;
-
 /** El valor viejo, solo para reconocer documentos sin migrar. NO se usa
  *  para conceder permisos: se normaliza a `ROL_MAESTRO` al leer el perfil. */
 const ROL_MAESTRO_LEGADO = 'supervisor';
@@ -110,19 +100,13 @@ export const ETIQUETA_ROL = Object.freeze({
   [ROL_MAESTRO]: 'Maestro de Obras',
 });
 
-/** Página de inicio de cada rol.
- *  ⚠️ Los directorios /supervisor/ y /jefe/ conservan su nombre viejo
- *  hasta la fase E. Hoy /supervisor/* es del INGENIERO y /jefe/* es del
- *  MAESTRO DE OBRAS. Deuda 3 en CONTRATOS.md. */
+/** Página de inicio de cada rol. */
 export const HOME_POR_ROL = Object.freeze({
-  [ROL_INGENIERO]: '/supervisor/dashboard.html',
-  [ROL_MAESTRO]: '/jefe/mis-tareas.html',
+  [ROL_INGENIERO]: '/ingeniero/dashboard.html',
+  [ROL_MAESTRO]: '/maestro/mis-tareas.html',
 });
 
 export const esIngeniero = (perfil) => normalizarRol(perfil?.rol) === ROL_INGENIERO;
 export const esMaestro = (perfil) => normalizarRol(perfil?.rol) === ROL_MAESTRO;
-
-/** @deprecated Alias del bloque 5c. Se retira en la fase E. */
-export const esSupervisor = esMaestro;
 
 export const esRolValido = (rol) => ROLES.includes(normalizarRol(rol));

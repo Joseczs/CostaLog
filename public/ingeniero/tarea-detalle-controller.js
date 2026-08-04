@@ -12,7 +12,7 @@ const tareaId = params.get('tarea');
 
 if (!proyectoId || !tareaId) {
   alert('Tarea no especificada.');
-  window.location.href = '/supervisor/dashboard.html';
+  window.location.href = '/ingeniero/dashboard.html';
 }
 
 let tareaRef = null;
@@ -34,7 +34,7 @@ async function cargarTarea() {
   const snap = await getDoc(tareaRef);
   if (!snap.exists()) {
     alert('Tarea no encontrada.');
-    window.location.href = '/supervisor/dashboard.html';
+    window.location.href = '/ingeniero/dashboard.html';
     return;
   }
   tarea = snap.data();
@@ -127,7 +127,7 @@ document.getElementById('btn-cerrar-tarea').addEventListener('click', async () =
       estado: 'terminada'
     });
     alert('Tarea cerrada correctamente.');
-    window.location.href = '/supervisor/dashboard.html';
+    window.location.href = '/ingeniero/dashboard.html';
   } catch (err) {
     errorEl.textContent = 'Error al cerrar tarea: ' + err.message;
   }

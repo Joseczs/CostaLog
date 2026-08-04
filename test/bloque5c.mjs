@@ -9,14 +9,12 @@ import assert from 'node:assert/strict';
 import {
   ROL_INGENIERO,
   ROL_MAESTRO,
-  ROL_SUPERVISOR,
   ROLES,
   ETIQUETA_ROL,
   HOME_POR_ROL,
   normalizarRol,
   esIngeniero,
   esMaestro,
-  esSupervisor,
   esRolValido,
 } from '../public/js/roles.js';
 
@@ -46,11 +44,11 @@ prueba('ROLES lleva los dos vigentes, no el viejo', () => {
   assert.ok(!ROLES.includes('supervisor'));
 });
 
-prueba('ROL_SUPERVISOR sobrevive como alias y apunta al nuevo', () => {
-  assert.equal(ROL_SUPERVISOR, ROL_MAESTRO);
-});
-
-// ── La tolerancia, que es el punto del bloque ──────────────────────────
+// ⚠️ EXCEPCIÓN — bloque 5c/E toca este archivo de la fase C, cerrada.
+// La prueba "ROL_SUPERVISOR sobrevive como alias" cumplió su plazo: el
+// propio roles.js decía desde la fase C "se retira en la fase E". Retirar
+// la prueba junto con el alias no es corregir el bloque 5c — es que el
+// bloque 5c/E hizo exactamente lo que estaba anunciado.// ── La tolerancia, que es el punto del bloque ──────────────────────────
 
 prueba("'supervisor' se traduce a 'maestro'", () => {
   assert.equal(normalizarRol('supervisor'), 'maestro');
@@ -99,9 +97,7 @@ prueba('la tolerancia NO reabre roles viejos: es un rol con dos nombres', () => 
 
 // ── Predicados ─────────────────────────────────────────────────────────
 
-prueba('esSupervisor sigue siendo el mismo predicado que esMaestro', () => {
-  assert.equal(esSupervisor, esMaestro);
-});
+// esSupervisor (alias de esMaestro) se retiró con el mismo criterio.
 
 prueba('un perfil nulo no revienta', () => {
   assert.equal(esIngeniero(null), false);
@@ -116,9 +112,12 @@ prueba('la etiqueta visible dice Maestro de Obras', () => {
   assert.equal(ETIQUETA_ROL[ROL_INGENIERO], 'Ingeniero Residente');
 });
 
-prueba('cada rol tiene su home, y los directorios siguen invertidos', () => {
-  assert.equal(HOME_POR_ROL[ROL_INGENIERO], '/supervisor/dashboard.html');
-  assert.equal(HOME_POR_ROL[ROL_MAESTRO], '/jefe/mis-tareas.html');
+prueba('cada rol tiene su home, con los nombres del bloque 5c/E', () => {
+  // Hasta el 5c/E esta prueba decía "los directorios siguen invertidos" —
+  // /supervisor/ era del ingeniero, /jefe/ del maestro. Ya no: el 5c/E
+  // los renombró a lo que dicen.
+  assert.equal(HOME_POR_ROL[ROL_INGENIERO], '/ingeniero/dashboard.html');
+  assert.equal(HOME_POR_ROL[ROL_MAESTRO], '/maestro/mis-tareas.html');
 });
 
 prueba('todo rol de ROLES tiene etiqueta y home', () => {

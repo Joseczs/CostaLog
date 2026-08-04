@@ -114,7 +114,7 @@ function cargarProyectos() {
         <td><span class="badge ${badgeClase}">${p.estado}</span></td>
         <td>
           <span class="acciones-celda">
-            <a href="/supervisor/nueva-tarea.html?proyecto=${p.id}" class="link-accion link-normal">+ Tarea</a>
+            <a href="/ingeniero/nueva-tarea.html?proyecto=${p.id}" class="link-accion link-normal">+ Tarea</a>
             <button class="link-accion link-normal btn-editar-proy" data-id="${p.id}">Editar</button>
             <button class="link-accion link-peligro btn-eliminar-proy" data-id="${p.id}" data-nombre="${p.nombre || ''}">Eliminar</button>
           </span>
@@ -347,7 +347,7 @@ function renderizarTabla(tareas) {
       <td>${t.fechaTermino}</td>
       <td>
         <span class="acciones-celda">
-          <a href="/supervisor/tarea-detalle.html?proyecto=${t.proyectoId}&tarea=${t.id}" class="link-accion link-normal">Ver</a>
+          <a href="/ingeniero/tarea-detalle.html?proyecto=${t.proyectoId}&tarea=${t.id}" class="link-accion link-normal">Ver</a>
           <button class="link-accion link-peligro btn-eliminar-tarea"
                   data-proy="${t.proyectoId}" data-tarea="${t.id}" data-act="${t.actividad}">Eliminar</button>
         </span>

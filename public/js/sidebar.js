@@ -5,54 +5,54 @@
 // categoría, sin depender de tooltips.
 // ═══════════════════════════════════════════════════════════════════════
 
-import { ROL_INGENIERO, ROL_SUPERVISOR } from './roles.js';
+import { ROL_INGENIERO, ROL_MAESTRO } from './roles.js';
 
 // Estructura de navegación por rol. Agrupada por categoría.
-// ⚠️ Los directorios /supervisor/ y /jefe/ conservan el nombre viejo:
-// /supervisor/* pertenece al INGENIERO, /jefe/* al SUPERVISOR (Maestro
+// ⚠️ Los directorios /ingeniero/ y /maestro/ conservan el nombre viejo:
+// /ingeniero/* pertenece al INGENIERO, /maestro/* al SUPERVISOR (Maestro
 // de Obras). Deuda declarada en CONTRATOS.md.
 const NAV_POR_ROL = {
   [ROL_INGENIERO]: [
     {
       grupo: 'General',
       items: [
-        { label: 'Dashboard', icono: '▤', href: '/supervisor/dashboard.html' }
+        { label: 'Dashboard', icono: '▤', href: '/ingeniero/dashboard.html' }
       ]
     },
     {
       grupo: 'Gestión',
       items: [
-        { label: 'Proyectos', icono: '🏗️', href: '/supervisor/dashboard.html#seccion-proyectos' },
+        { label: 'Proyectos', icono: '🏗️', href: '/ingeniero/dashboard.html#seccion-proyectos' },
         // Bloque 4a — deuda 6 pagada. Metas y Configuración se llegaban solo
         // por URL escrita a mano; ahora tienen entrada propia.
-        { label: 'Metas', icono: '🎯', href: '/supervisor/metas.html' },
+        { label: 'Metas', icono: '🎯', href: '/ingeniero/metas.html' },
         // Bloque 5 — la misma pantalla para los dos roles (D-5-01).
-        { label: 'Resumen de bono', icono: '💰', href: '/supervisor/bono-resumen.html' },
-        { label: 'Tareas', icono: '📋', href: '/supervisor/dashboard.html#seccion-tareas' },
-        { label: 'Colaboradores', icono: '👷', href: '/supervisor/gestionar-empleados.html' },
-        { label: 'Configuración', icono: '⚙️', href: '/supervisor/config-proyecto.html' }
+        { label: 'Resumen de bono', icono: '💰', href: '/ingeniero/bono-resumen.html' },
+        { label: 'Tareas', icono: '📋', href: '/ingeniero/dashboard.html#seccion-tareas' },
+        { label: 'Colaboradores', icono: '👷', href: '/ingeniero/gestionar-empleados.html' },
+        { label: 'Configuración', icono: '⚙️', href: '/ingeniero/config-proyecto.html' }
       ]
     },
     {
       grupo: 'Datos',
       items: [
-        { label: 'Excel', icono: '📊', href: '/supervisor/dashboard.html?panel=excel' }
+        { label: 'Excel', icono: '📊', href: '/ingeniero/dashboard.html?panel=excel' }
       ]
     }
   ],
-  [ROL_SUPERVISOR]: [
+  [ROL_MAESTRO]: [
     {
       grupo: 'General',
       items: [
-        { label: 'Mis tareas', icono: '📋', href: '/jefe/mis-tareas.html' },
+        { label: 'Mis tareas', icono: '📋', href: '/maestro/mis-tareas.html' },
         // Bloque 4c — la mitad de PROPONER de D-11. Primero de la lista a
         // propósito: es la única entrada de datos reales del sistema.
-        { label: 'Reportar avance', icono: '📈', href: '/jefe/avance.html' },
+        { label: 'Reportar avance', icono: '📈', href: '/maestro/avance.html' },
         // Mismo archivo que ve el ingeniero: mismos numeros, misma cascada.
-        // La carpeta /supervisor/ no es una frontera de permisos — el guardia
+        // La carpeta /ingeniero/ no es una frontera de permisos — el guardia
         // es protegerPagina, y esa pantalla admite los dos roles.
-        { label: 'Resumen de bono', icono: '💰', href: '/supervisor/bono-resumen.html' },
-        { label: 'Mi equipo', icono: '👷', href: '/jefe/mi-cuadrilla.html' }
+        { label: 'Resumen de bono', icono: '💰', href: '/ingeniero/bono-resumen.html' },
+        { label: 'Mi equipo', icono: '👷', href: '/maestro/mi-cuadrilla.html' }
       ]
     }
   ]
@@ -72,7 +72,7 @@ export function renderSidebar(perfil) {
   if (!perfil || document.querySelector('.sidebar')) return; // ya renderizado
 
   // Rol desconocido cae al menú de menos alcance, nunca al de más.
-  const grupos = NAV_POR_ROL[perfil.rol] || NAV_POR_ROL[ROL_SUPERVISOR];
+  const grupos = NAV_POR_ROL[perfil.rol] || NAV_POR_ROL[ROL_MAESTRO];
   const rutaActual = window.location.pathname;
 
   const aside = document.createElement('aside');

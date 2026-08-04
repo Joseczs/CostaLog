@@ -1,4 +1,4 @@
-import { ROL_INGENIERO, ROL_SUPERVISOR } from '../js/roles.js';
+import { ROL_INGENIERO, ROL_MAESTRO } from '../js/roles.js';
 import { protegerPagina, cerrarSesion } from '../js/auth.js';
 import {
   db, collection, addDoc, onSnapshot, doc, updateDoc, serverTimestamp,
@@ -22,7 +22,7 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
 
 // ── Cargar lista de Jefes de Cuadrilla ─────────────────────────────────
 async function cargarJefes() {
-  const q = query(collection(db, 'usuarios'), where('rol', '==', ROL_SUPERVISOR));
+  const q = query(collection(db, 'usuarios'), where('rol', '==', ROL_MAESTRO));
   const snap = await getDocs(q);
   const select = document.getElementById('selector-jefe');
   snap.forEach(d => {

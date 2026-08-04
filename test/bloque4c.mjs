@@ -20,7 +20,7 @@ import {
   proyeccion,
   validarAvance,
   ESTADOS_REPORTABLES,
-} from '../public/jefe/avance-controller.js';
+} from '../public/maestro/avance-controller.js';
 
 const REGLAS = normalizarReglas(META.reglasBono ?? {});
 

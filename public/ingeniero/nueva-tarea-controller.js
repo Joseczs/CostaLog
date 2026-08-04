@@ -1,4 +1,4 @@
-import { ROL_INGENIERO, ROL_SUPERVISOR } from '../js/roles.js';
+import { ROL_INGENIERO, ROL_MAESTRO } from '../js/roles.js';
 import { protegerPagina, cerrarSesion } from '../js/auth.js';
 import { renderSidebar } from '../js/sidebar.js';
 import {
@@ -35,7 +35,7 @@ async function cargarProyectos() {
 }
 
 async function cargarJefesCuadrilla() {
-  const q = query(collection(db, 'usuarios'), where('rol', '==', ROL_SUPERVISOR));
+  const q = query(collection(db, 'usuarios'), where('rol', '==', ROL_MAESTRO));
   const snap = await getDocs(q);
   const select = document.getElementById('tarea-jefe');
   snap.forEach(d => {
@@ -90,7 +90,7 @@ document.getElementById('form-tarea').addEventListener('submit', async (e) => {
 
     await addDoc(collection(db, 'proyectos', proyectoId, 'tareas'), nuevaTarea);
     alert('Tarea creada correctamente.');
-    window.location.href = '/supervisor/dashboard.html';
+    window.location.href = '/ingeniero/dashboard.html';
   } catch (err) {
     errorEl.textContent = 'Error al crear tarea: ' + err.message;
   }

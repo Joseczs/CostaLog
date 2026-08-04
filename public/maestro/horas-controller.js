@@ -1,4 +1,4 @@
-import { ROL_SUPERVISOR } from '../js/roles.js';
+import { ROL_MAESTRO } from '../js/roles.js';
 import { protegerPagina, cerrarSesion } from '../js/auth.js';
 import { renderSidebar } from '../js/sidebar.js';
 import {
@@ -18,10 +18,10 @@ let cuadrillaCompleta = [];      // roster completo del jefe
 
 if (!proyectoId || !tareaId) {
   alert('Tarea no especificada.');
-  window.location.href = '/jefe/mis-tareas.html';
+  window.location.href = '/maestro/mis-tareas.html';
 }
 
-protegerPagina([ROL_SUPERVISOR], async (perfil) => {
+protegerPagina([ROL_MAESTRO], async (perfil) => {
   jefeUid = perfil.uid;
   renderSidebar(perfil);
   document.getElementById('nombre-usuario').textContent = perfil.nombre;
@@ -42,14 +42,14 @@ async function cargarTarea() {
   const snap = await getDoc(tareaRef);
   if (!snap.exists()) {
     alert('Tarea no encontrada.');
-    window.location.href = '/jefe/mis-tareas.html';
+    window.location.href = '/maestro/mis-tareas.html';
     return;
   }
   tarea = snap.data();
 
   if (tarea.jefeCuadrillaId !== jefeUid) {
     alert('No tienes acceso a esta tarea.');
-    window.location.href = '/jefe/mis-tareas.html';
+    window.location.href = '/maestro/mis-tareas.html';
     return;
   }
 

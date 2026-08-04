@@ -10,7 +10,7 @@ import {
   textoTarifas,
   prepararGuardado,
   formatearColones,
-} from '../public/supervisor/config-proyecto-controller.js';
+} from '../public/ingeniero/config-proyecto-controller.js';
 
 let pasadas = 0;
 const prueba = (nombre, fn) => {

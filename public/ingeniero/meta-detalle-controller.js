@@ -179,7 +179,7 @@ async function arrancar() {
       ]);
 
       $('titulo-meta').textContent = `Meta ${meta.numero ?? ''}`.trim();
-      $('enlace-volver').href = `/supervisor/metas.html?proyecto=${encodeURIComponent(proyectoId)}`;
+      $('enlace-volver').href = `/ingeniero/metas.html?proyecto=${encodeURIComponent(proyectoId)}`;
 
       pintarCabecera(proyecto);
       recalcularYPintar();

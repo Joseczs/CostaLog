@@ -205,7 +205,7 @@ if (typeof document !== 'undefined' && document.getElementById('cascada')) {
 }
 
 async function arrancar() {
-  const [{ ROL_INGENIERO, ROL_SUPERVISOR }, { protegerPagina, cerrarSesion },
+  const [{ ROL_INGENIERO, ROL_MAESTRO }, { protegerPagina, cerrarSesion },
          { renderSidebar }, { db }, { crearProyectosRepo }, { crearMetasRepo },
          { crearHitosRepo }, { calcularBonoMeta }, { normalizarReglas },
          { textoProcedencia }] = await Promise.all([
@@ -234,13 +234,13 @@ async function arrancar() {
   /** uid con el que filtrar, o `null` para ver todo. Lo fija el rol. */
   let soloDe = null;
 
-  protegerPagina([ROL_INGENIERO, ROL_SUPERVISOR], async (perfil) => {
+  protegerPagina([ROL_INGENIERO, ROL_MAESTRO], async (perfil) => {
     renderSidebar(perfil);
     $('nombre-usuario').textContent = perfil.nombre;
     // Bloque 5b — la asimetría es deliberada: el ingeniero define el alcance
     // de todos los frentes y tiene que verlos todos; el Maestro de Obras ve
     // solo los suyos. El bono de otro Maestro de Obras no es asunto suyo.
-    soloDe = perfil.rol === ROL_SUPERVISOR ? perfil.uid : null;
+    soloDe = perfil.rol === ROL_MAESTRO ? perfil.uid : null;
     await cargarProyectos();
   });
 

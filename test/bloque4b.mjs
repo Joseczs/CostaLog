@@ -11,13 +11,13 @@ import assert from 'node:assert/strict';
 import { calcularBonoMeta } from '../public/js/core/calculoMeta.js';
 import { normalizarReglas } from '../public/js/core/reglasBono.config.js';
 import * as fixture from '../public/js/core/fixtures/meta-unidepro-1.js';
-import { modeloTabla, filaDeHito, hitoMiscelaneos, ID_MISCELANEOS } from '../public/supervisor/hitos-tabla.js';
+import { modeloTabla, filaDeHito, hitoMiscelaneos, ID_MISCELANEOS } from '../public/ingeniero/hitos-tabla.js';
 import {
   totalesDesdeResultado,
   textoProcedencia,
   validarAvance,
   esEditable,
-} from '../public/supervisor/meta-detalle-controller.js';
+} from '../public/ingeniero/meta-detalle-controller.js';
 
 let pasadas = 0;
 const prueba = (nombre, fn) => {

@@ -2,6 +2,24 @@
   publish = "public"
   command = ""
 
+# Bloque 5c/E — los directorios se renombraron:
+#   /supervisor/*  →  /ingeniero/*   (era del Ingeniero Residente)
+#   /jefe/*        →  /maestro/*     (era del Maestro de Obras)
+#
+# Estos dos redirects existen para que un enlace viejo —guardado en un
+# marcador, pegado en WhatsApp, un correo de hace tres semanas— siga
+# funcionando. Van ANTES del catch-all de abajo: Netlify evalúa de arriba
+# hacia abajo y se queda con la primera coincidencia.
+[[redirects]]
+  from = "/supervisor/*"
+  to = "/ingeniero/:splat"
+  status = 301
+
+[[redirects]]
+  from = "/jefe/*"
+  to = "/maestro/:splat"
+  status = 301
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

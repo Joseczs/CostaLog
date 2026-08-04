@@ -67,7 +67,7 @@ const sinComentarios = (ruta) =>
 const EXCEPCIONES_EXCEL = [
   'public/js/importarExcel.js',
   'public/js/exportarExcel.js',
-  'public/supervisor/dashboard.html',
+  'public/ingeniero/dashboard.html',
 ];
 
 const esExcepcionExcel = (ruta) =>
@@ -100,12 +100,12 @@ prueba('las etiquetas canónicas son las de roles.js', () => {
 });
 
 prueba('el panel del ingeniero se llama como el ingeniero', () => {
-  const html = sinComentarios(join(publico, 'supervisor/dashboard.html'));
+  const html = sinComentarios(join(publico, 'ingeniero/dashboard.html'));
   assert.match(html, /Panel del Ingeniero Residente/);
 });
 
 prueba('la pantalla del maestro no lo nombra con el rol viejo', () => {
-  const html = sinComentarios(join(publico, 'jefe/mis-tareas.html'));
+  const html = sinComentarios(join(publico, 'maestro/mis-tareas.html'));
   assert.doesNotMatch(html, /Jefe de Cuadrilla/i);
 });
 
@@ -122,7 +122,7 @@ prueba('la columna de Excel CONSERVA su nombre en los dos sentidos', () => {
 });
 
 prueba('el modal de importación describe la columna tal como se lee', () => {
-  const html = readFileSync(join(publico, 'supervisor/dashboard.html'), 'utf8');
+  const html = readFileSync(join(publico, 'ingeniero/dashboard.html'), 'utf8');
   const importar = readFileSync(join(publico, 'js/importarExcel.js'), 'utf8');
   assert.ok(importar.includes("'Jefe de Cuadrilla'"));
   assert.ok(html.includes('Jefe de Cuadrilla'),

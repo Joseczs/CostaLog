@@ -1,10 +1,10 @@
-import { ROL_SUPERVISOR } from '../js/roles.js';
+import { ROL_MAESTRO } from '../js/roles.js';
 import { protegerPagina, cerrarSesion } from '../js/auth.js';
 import { db, collection, getDocs, query, where } from '../js/firebase-config.js';
 import { crearProyectosRepo } from '../js/repos/proyectosRepo.js';
 import { renderSidebar } from '../js/sidebar.js';
 
-protegerPagina([ROL_SUPERVISOR], (perfil) => {
+protegerPagina([ROL_MAESTRO], (perfil) => {
   renderSidebar(perfil);
   document.getElementById('nombre-usuario').textContent = perfil.nombre;
   cargarMisTareas(perfil.uid);
@@ -89,7 +89,7 @@ async function cargarMisTareas(jefeUid) {
         <td><span class="badge ${badgeClass}">${t.estado}</span></td>
         <td>
           <a class="btn-accion" style="text-decoration:none;display:inline-block;"
-             href="/jefe/horas.html?proyecto=${t.proyectoId}&tarea=${t.id}">
+             href="/maestro/horas.html?proyecto=${t.proyectoId}&tarea=${t.id}">
              Registrar horas
           </a>
         </td>`;

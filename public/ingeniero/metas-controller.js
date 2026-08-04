@@ -233,7 +233,7 @@ async function arrancar() {
     seccion.style.display = 'block';
     proyectoActualId = proyectoId;
 
-    enlaceConfig.href = `/supervisor/config-proyecto.html?proyecto=${encodeURIComponent(proyectoId)}`;
+    enlaceConfig.href = `/ingeniero/config-proyecto.html?proyecto=${encodeURIComponent(proyectoId)}`;
 
     let metas = [];
     try {
@@ -270,7 +270,7 @@ async function arrancar() {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td class="col-meta">
-          <a href="/supervisor/meta-detalle.html?proyecto=${encodeURIComponent(proyectoActualId)}&meta=${encodeURIComponent(f.id)}"><strong>${escapar(f.numero)}</strong></a>
+          <a href="/ingeniero/meta-detalle.html?proyecto=${encodeURIComponent(proyectoActualId)}&meta=${encodeURIComponent(f.id)}"><strong>${escapar(f.numero)}</strong></a>
           ${f.esFixture ? '<span class="marca-fixture">fixture</span>' : ''}
         </td>
         <td>${escapar(f.inicio)}</td>

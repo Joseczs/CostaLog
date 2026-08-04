@@ -145,7 +145,7 @@ if (typeof document !== 'undefined' && document.getElementById('lista-hitos')) {
 }
 
 async function arrancar() {
-  const [{ ROL_SUPERVISOR }, { protegerPagina, cerrarSesion }, { renderSidebar },
+  const [{ ROL_MAESTRO }, { protegerPagina, cerrarSesion }, { renderSidebar },
          { db }, { crearProyectosRepo }, { crearMetasRepo }, { crearHitosRepo },
          { calcularBonoMeta }, { normalizarReglas }] = await Promise.all([
     import('../js/roles.js'),
@@ -174,7 +174,7 @@ async function arrancar() {
   /** Ids con la propuesta escrita pero no confirmada por el servidor. */
   const sinEnviar = new Map();
 
-  protegerPagina([ROL_SUPERVISOR], async (perfil) => {
+  protegerPagina([ROL_MAESTRO], async (perfil) => {
     renderSidebar(perfil);
     $('nombre-usuario').textContent = perfil.nombre;
     uid = perfil.uid;

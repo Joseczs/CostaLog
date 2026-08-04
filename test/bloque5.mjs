@@ -18,7 +18,7 @@ import {
   verificarCascada,
   comparativa,
   filasHoras,
-} from '../public/supervisor/bono-resumen.js';
+} from '../public/ingeniero/bono-resumen.js';
 
 const REGLAS = normalizarReglas(META.reglasBono ?? {});
 const R = calcularBonoMeta(META, HITOS, EVALS, REGLAS, []);
