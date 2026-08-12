@@ -11,6 +11,14 @@ import { ROL_MAESTRO } from './roles.js';
 import {
   db, collection, addDoc, getDocs, query, where, serverTimestamp
 } from './firebase-config.js';
+// Deuda 18: los proyectos que esta importación crea nacen con supervisorIds.
+import { crearProyectosRepo } from './repos/proyectosRepo.js';
+import {
+  documentoProyectoNuevo, supervisorIdsHeredadosDelExcel,
+  avisoProyectosSinMaestro,
+} from './nuevoProyecto.js';
+
+const proyectosRepo = crearProyectosRepo(db);
 
 const COLUMNAS_PLANTILLA = [
   'Proyecto', 'OT#', 'Actividad', '# Actividad', 'Cantidad', 'Unidad',
@@ -129,23 +137,37 @@ async function validarFilas(filas) {
 }
 
 // ── 4. Crear los proyectos faltantes (una sola vez cada uno) ────────────
-// Se crean con estado "incompleto" y activo:true. El Supervisor los
+// Se crean con estado "incompleto" y activo:true. El Ingeniero los
 // completará (Ubicación) desde el Dashboard para pasarlos a "activo".
-async function crearProyectosFaltantes(proyectosNuevos) {
+//
+// Deuda 18, dos cambios:
+//   • La escritura pasa por `proyectosRepo.crear()` en vez de `addDoc`
+//     directo (D-18-01). `activo` y `createdAt` los pone el repo.
+//   • Cada proyecto nuevo hereda como `supervisorIds` los uid de los
+//     jefes de cuadrilla que aparecen en SUS propias filas (D-18-03).
+//     Antes nacía invisible para todo el mundo, incluida la persona
+//     nombrada en la fila que lo creó.
+//
+// @returns {{ mapaNombreAId: Object, sinMaestro: string[] }}
+async function crearProyectosFaltantes(proyectosNuevos, filasValidas) {
+  const heredados = supervisorIdsHeredadosDelExcel(filasValidas, proyectosNuevos);
   const mapaNombreAId = {};
+  const sinMaestro = [];
+
   for (const { nombre, codigoSugerido } of proyectosNuevos.values()) {
-    const ref = await addDoc(collection(db, 'proyectos'), {
+    const supervisorIds = heredados[nombre] ?? [];
+    const documento = documentoProyectoNuevo({
       codigo: codigoSugerido,
       nombre,
       ubicacion: '',
       estado: 'incompleto',
-      activo: true,
-      creadoDesdeExcel: true,
-      createdAt: serverTimestamp()
+      supervisorIds,
+      extra: { creadoDesdeExcel: true },
     });
-    mapaNombreAId[nombre] = ref.id;
+    mapaNombreAId[nombre] = await proyectosRepo.crear(documento);
+    if (supervisorIds.length === 0) sinMaestro.push(nombre);
   }
-  return mapaNombreAId;
+  return { mapaNombreAId, sinMaestro };
 }
 
 // ── 5. Crear las tareas válidas en Firestore ────────────────────────────
@@ -235,12 +257,24 @@ document.getElementById('btn-procesar-import')?.addEventListener('click', async 
     resultadoEl.innerHTML = html;
 
     if (validas.length > 0) {
-      const mapaProyectosNuevos = await crearProyectosFaltantes(proyectosNuevos);
-      const creadas = await crearTareasEnLote(validas, mapaProyectosNuevos);
-      const nProy = Object.keys(mapaProyectosNuevos).length;
+      const { mapaNombreAId, sinMaestro } =
+        await crearProyectosFaltantes(proyectosNuevos, validas);
+      const creadas = await crearTareasEnLote(validas, mapaNombreAId);
+      const nProy = Object.keys(mapaNombreAId).length;
       let msg = `✓ ${creadas} tarea(s) creada(s) correctamente.`;
       if (nProy > 0) msg += ` ${nProy} proyecto(s) nuevo(s) creado(s) (revisa y completa su Ubicación).`;
       resultadoEl.innerHTML += `<p style="color:#2E7D32; font-weight:700; margin-top:8px;">${msg}</p>`;
+
+      // D-18-04. En la práctica esta lista casi siempre va vacía: un
+      // proyecto nuevo llega acá porque alguna fila lo nombró, y esa fila
+      // no habría sido válida sin un jefe de cuadrilla existente. Se pinta
+      // igual, porque "casi siempre" no es "siempre" y un permiso que
+      // falta en silencio es lo que esta deuda vino a cerrar.
+      const aviso = avisoProyectosSinMaestro(sinMaestro);
+      if (aviso) {
+        resultadoEl.innerHTML +=
+          `<p class="import-advertencia" style="margin-top:8px;">⚠ ${aviso}</p>`;
+      }
     }
   } catch (err) {
     errorEl.textContent = 'Error al procesar el archivo: ' + err.message;

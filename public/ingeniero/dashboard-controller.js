@@ -1,14 +1,24 @@
 import { ROL_INGENIERO } from '../js/roles.js';
 import { protegerPagina, cerrarSesion } from '../js/auth.js';
 import {
-  db, collection, addDoc, updateDoc, doc, onSnapshot, query, orderBy,
-  getDocs, serverTimestamp
+  db, collection, updateDoc, doc, onSnapshot, query, orderBy,
+  getDocs
 } from '../js/firebase-config.js';
 import { ejecutarExportacion } from '../js/exportarExcel.js';
 import { descargarPlantilla } from '../js/importarExcel.js';
 import { calcularBono } from '../js/calcularBono.js';
 import { renderSidebar } from '../js/sidebar.js';
 import { validarCamposProyecto, etiquetasCamposFaltantes } from '../js/validaciones.js';
+// Deuda 18: la creación ya no arma el documento a mano ni llama a `addDoc`.
+import { crearProyectosRepo } from '../js/repos/proyectosRepo.js';
+import { crearUsuariosRepo } from '../js/repos/usuariosRepo.js';
+import {
+  documentoProyectoNuevo, modeloMaestrosParaAlta, sinMaestroAsignado,
+  avisoProyectosSinMaestro,
+} from '../js/nuevoProyecto.js';
+
+const proyectosRepo = crearProyectosRepo(db);
+const usuariosRepo = crearUsuariosRepo(db);
 
 let todasLasTareas = [];       // caché completa (sin filtrar) con datos enriquecidos
 let proyectosActuales = [];    // [{ id, nombre }] de proyectos ACTIVOS existentes
@@ -17,6 +27,7 @@ let ordenColumna = null;
 let ordenAscendente = true;
 let grupoEstado = 'abiertas';  // tab activo: 'abiertas' | 'cerradas' | 'todas'
 let proyectoEditandoId = null; // null = modal en modo "crear"
+let maestrosCache = null;      // Maestros de Obra activos; null = sin cargar aún
 
 // Qué estados cuentan como abiertos vs cerrados (feature 3)
 const ESTADOS_ABIERTOS = ['abierta', 'en_progreso'];
@@ -41,12 +52,70 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
 // ── Modal Nuevo / Editar Proyecto ───────────────────────────────────────
 const modal = document.getElementById('modal-proyecto');
 
+/**
+ * Deuda 18 / D-18-02. La lista de Maestros de Obra dentro del modal de alta.
+ *
+ * Se carga una sola vez por sesión y se guarda en `maestrosCache`: el
+ * ingeniero abre este modal varias veces seguidas cuando está montando una
+ * obra, y volver a bajar la colección en cada apertura no aporta nada.
+ *
+ * Si la consulta falla no se rompe el alta: se deja la sección vacía con su
+ * explicación y el proyecto se puede crear igual, sin maestros. Crear el
+ * proyecto es lo urgente; asignarlo se puede hacer después en la pantalla del
+ * 5b-2. Al revés —bloquear el alta porque no cargó una lista opcional— sería
+ * cambiar una molestia por un tapón.
+ */
+async function pintarMaestrosDelModal() {
+  const cont = document.getElementById('lista-maestros-alta');
+  const seccion = document.getElementById('seccion-maestros-alta');
+  if (!cont || !seccion) return;
+
+  seccion.style.display = '';
+  if (maestrosCache === null) {
+    cont.innerHTML = '<p class="ayuda-modal">Cargando Maestros de Obra…</p>';
+    try {
+      maestrosCache = await usuariosRepo.listarMaestros();
+    } catch (err) {
+      console.error('[dashboard] no se pudieron listar los Maestros de Obra:', err);
+      maestrosCache = null;
+      cont.innerHTML =
+        '<p class="ayuda-modal">No se pudo cargar la lista de Maestros de Obra. ' +
+        'El proyecto se puede crear igual y asignarlo después en Asignar maestros.</p>';
+      return;
+    }
+  }
+
+  const filas = modeloMaestrosParaAlta(maestrosCache, []);
+  if (filas.length === 0) {
+    cont.innerHTML =
+      '<p class="ayuda-modal">No hay ningún Maestro de Obra dado de alta todavía. ' +
+      'El proyecto se crea igual y se asigna cuando exista alguno.</p>';
+    return;
+  }
+
+  cont.innerHTML = filas.map((f) => `
+    <label class="fila-maestro-alta">
+      <input type="checkbox" class="chk-maestro-alta" value="${f.uid}">
+      <span>${f.nombre}${f.detalle ? ` <small>${f.detalle}</small>` : ''}</span>
+    </label>`).join('');
+}
+
+/** Los uid marcados en el modal, en el orden en que aparecen en pantalla. */
+function maestrosMarcadosEnModal() {
+  return Array.from(document.querySelectorAll('.chk-maestro-alta:checked'))
+    .map((chk) => chk.value);
+}
+
 function abrirModalNuevoProyecto() {
   proyectoEditandoId = null;
   document.getElementById('modal-proyecto-titulo').textContent = 'Nuevo Proyecto';
   document.getElementById('btn-guardar-proyecto').textContent = 'Crear';
   document.getElementById('form-proyecto').reset();
+  document.getElementById('aviso-proyecto').textContent = '';
   modal.style.display = 'flex';
+  // Sin `await`: el modal se abre ya, la lista aparece cuando llegue. Nada
+  // del formulario depende de ella.
+  pintarMaestrosDelModal();
 }
 
 function abrirModalEditarProyecto(p) {
@@ -56,6 +125,16 @@ function abrirModalEditarProyecto(p) {
   document.getElementById('proy-codigo').value = p.codigo || '';
   document.getElementById('proy-nombre').value = p.nombre || '';
   document.getElementById('proy-ubicacion').value = p.ubicacion || '';
+  document.getElementById('aviso-proyecto').textContent = '';
+
+  // D-18-05: editar NO toca `supervisorIds`. Después de nacer, la única ruta
+  // de escritura de las asignaciones es la pantalla del 5b-2. Si esta sección
+  // apareciera acá, guardar un cambio de ubicación con los checkbox vacíos
+  // desasignaría a todo el mundo sin que nadie lo haya pedido — exactamente
+  // el error que `asignarSupervisores()` evita mandando el arreglo completo.
+  const seccion = document.getElementById('seccion-maestros-alta');
+  if (seccion) seccion.style.display = 'none';
+
   modal.style.display = 'flex';
 }
 
@@ -72,16 +151,32 @@ document.getElementById('form-proyecto').addEventListener('submit', async (e) =>
   // El estado se deriva de si el proyecto está completo (validador reutilizable).
   const estado = validarCamposProyecto(datos).length === 0 ? 'activo' : 'incompleto';
 
+  const avisoEl = document.getElementById('aviso-proyecto');
+  avisoEl.textContent = '';
+
   if (proyectoEditandoId) {
+    // D-18-05: `supervisorIds` no viaja en este `updateDoc`. Lo que el
+    // formulario no muestra, el formulario no escribe.
     await updateDoc(doc(db, 'proyectos', proyectoEditandoId), { ...datos, estado });
   } else {
-    await addDoc(collection(db, 'proyectos'), {
-      ...datos, estado, activo: true, createdAt: serverTimestamp()
+    // D-18-01: un solo camino de creación, el del repo, que garantiza
+    // `supervisorIds`, `activo` y `createdAt`. Ya no se arma el documento
+    // a mano acá — era la mitad de la deuda 18.
+    const documento = documentoProyectoNuevo({
+      ...datos, estado, supervisorIds: maestrosMarcadosEnModal(),
     });
+    await proyectosRepo.crear(documento);
+
+    // D-18-04: nacer sin maestros es legal, pero nunca silencioso.
+    if (sinMaestroAsignado(documento)) {
+      avisoEl.textContent = avisoProyectosSinMaestro([documento.nombre]);
+    }
   }
   e.target.reset();
   proyectoEditandoId = null;
-  modal.style.display = 'none';
+  // Con aviso el modal se queda abierto: cerrarlo de golpe pintaría el
+  // texto en una tarjeta que ya nadie está mirando.
+  if (!avisoEl.textContent) modal.style.display = 'none';
 });
 
 // ── Listar proyectos (en vivo) ─────────────────────────────────────────
