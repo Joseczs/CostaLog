@@ -31,7 +31,7 @@ desactualizado es peor que no tenerlo.
 | 5c/D | Reglas estrictas (solo maestro) | ✅ hecho | 13/13 + 4/4 en producción |
 | 5c/E | Directorios y rutas | ✅ hecho | 13/13 + checklist en producción |
 | 5d | Registro no asigna rol (deuda 1) | ✅ hecho | 25/25 + 8/8 en producción |
-| 6 | Extras, créditos y evaluaciones | ⬜ | — |
+| 6 | Extras, créditos y evaluaciones | ✅ hecho | 30/30 + checklist visual |
 | 7 | Tareas BP + migración de pesos | ⬜ | — |
 | 8 | Pagos y exportación Excel | ⬜ | — |
 
@@ -1668,6 +1668,182 @@ inválido: **nunca se corrige en silencio.** Cuatro pruebas.
   `ingeniero/gestionar-empleados-controller.js:25`,
   `ingeniero/nueva-tarea-controller.js:38`, `js/importarExcel.js:92`.
   Cada uno se pasa el día que se abra por su propia razón.
+- **8 y 11 — sin cambios.** No son de este bloque.
+
+---
+
+## Bloque 6 — extras, créditos y evaluaciones ✅
+
+```
+public/ingeniero/actividades-fuera-lista.html            ← nuevo
+public/ingeniero/actividades-fuera-lista-controller.js   ← nuevo
+public/ingeniero/evaluaciones.html                        ← nuevo
+public/ingeniero/evaluaciones-controller.js               ← nuevo
+public/ingeniero/meta-detalle.html   ← EXCEPCIÓN declarada: dos enlaces nuevos
+test/bloque6.mjs                     ← nuevo, fuera del deploy y del conteo
+```
+
+**Cinco archivos contados.** `hitosRepo.js` y `metasRepo.js` **no se
+tocaron** — ya traían todo lo necesario desde el bloque 1
+(`crear`/`desactivar`/`siguienteCodigo` para hitos;
+`crearEvaluacion`/`desactivarEvaluacion`/`listarEvaluaciones` para
+evaluaciones). `firestore.rules` **tampoco**: `esIngeniero()` ya cubre
+`create`/`update` de `hitos` y `evaluaciones`, verificado leyendo el
+archivo real antes de escribir código.
+
+La excepción de `meta-detalle.html` son **dos enlaces**, resueltos con un
+`<script>` inline que lee `?proyecto&meta` de la URL actual — no toca
+`meta-detalle-controller.js`. Sin ella, las dos pantallas nuevas se llegan
+solo por URL escrita a mano, y "un enlace muerto es peor que ningún
+enlace" ya se decidió en el bloque 4a.
+
+---
+
+### El signo, resuelto por construcción
+
+El plan pedía "validación de signo, sin excepción" (crédito ⇒ cantidad
+negativa). La decisión: **no se valida un número que alguien ya escribió
+con el signo equivocado — no se deja escribir el signo.** El formulario
+pide una magnitud siempre positiva; el selector de tipo (Extra / Crédito)
+decide el signo. `prepararActividad()` igual valida como defensa en
+profundidad, pero el error que el plan quería evitar ya no tiene por dónde
+entrar. Ocho pruebas cubren esto, incluida la de que un tipo desconocido
+**lanza**, no adivina un signo por omisión.
+
+---
+
+### El hueco que apareció leyendo el código, y que este bloque cierra
+
+`meta-detalle.html` (bloque 4b) vuelve la tabla de hitos de solo lectura
+cuando la meta está `cerrada`/`pagada` (`ESTADOS_SOLO_LECTURA`,
+`esEditable()`). Pero `metasRepo.listarEvaluaciones()` no filtra por
+estado, y **nada impedía agregar una evaluación a una meta ya cerrada** —
+cambiando en silencio el `factorCalidad`, y con él el `bonoMO`, de un
+período que se suponía liquidado con sus `reglasSnapshot` congeladas.
+`reglasSnapshot` congela las **tarifas**; nada congelaba las
+**evaluaciones**.
+
+Las dos pantallas nuevas reusan `esEditable(meta)` —**ya exportada** por el
+4b, cero cambios en ese archivo— para bloquear el formulario cuando la meta
+no es editable. Mismo argumento que ya usó `bono-resumen.js` en el bloque 5
+para importar `textoProcedencia` del mismo archivo: la mitad de navegador
+de `meta-detalle-controller.js` solo arranca si existe `#tabla-hitos`, que
+en estas dos pantallas no existe, así que el import es seguro.
+
+---
+
+### Las decisiones, cerradas antes del código
+
+**D-6-01 · Esta pantalla NO edita el `% avance` de lo que crea.**
+`meta-detalle.html` ya edita el avance de cualquier hito —lista, extra o
+crédito— con su propio momento de escritura (D-4b-05, al salir del campo) y
+su propia auditoría (`aprobarAvance`). Repetir ese campo acá sería un
+segundo lugar donde se escribe el mismo dato, con dos rutas para el mismo
+error.
+
+**D-6-02 · No se edita una actividad ni una evaluación ya creada.** Un
+typo se corrige desactivando y creando de nuevo — dos acciones explícitas y
+auditables, en vez de un `update` silencioso sobre un dato que ya pudo
+haber entrado al cálculo. `hitosRepo.siguienteCodigo()` ya mira los
+desactivados para no reciclar un código que aparece en un histórico, así
+que el rastro queda completo.
+
+**D-6-03 · Vista previa en vivo, con el motor real — no una cuenta
+paralela.** Las dos pantallas cargan proyecto, meta, **todos** los hitos
+(no solo extras/créditos) y evaluaciones, y llaman `calcularBonoMeta()` dos
+veces: una con lo que ya existe, otra con el borrador agregado. Es la misma
+pregunta que `bono-resumen.js` le hace al motor con la proyección de
+avances, aplicada acá a un extra, un crédito o una evaluación todavía sin
+guardar. Cero escritura mientras se escribe: se recalcula en memoria en
+cada tecla, el mismo costo de 3,65 µs medido en el bloque 0.
+
+Esto reveló el criterio de aceptación del propio plan casi de regalo: un
+crédito de −40 HH baja el total **estimado** en 40 de inmediato, aunque su
+avance nazca en 0 — porque `hhEstimadasHito()` no depende del avance y
+`hhGanadasHito()` sí. Con avance en 0, nada queda "ganado" todavía. Tiene
+tres pruebas, incluida la que fija exactamente ese número.
+
+**D-6-04 · La frecuencia bisemanal (D-08) no se valida por fecha.** El plan
+la describe como cadencia operativa, no como regla dura, y el Excel original
+solo tenía la etiqueta mal puesta ("promedio semanal" en vez de bisemanal).
+Inventar una validación de espaciado entre fechas sería una regla de
+negocio que no está en la especificación. La única validación de fecha es
+que no sea futura: no se califica algo que todavía no pasó.
+
+**D-6-05 · `notaFactor()` se duplica, no se importa.** Dice lo mismo que ya
+pinta `meta-detalle-controller.js` inline ("sin evaluaciones registradas: se
+calcula al 100 %, sin castigo" / "promedio de N evaluaciones"). Extraerla
+como export nuevo exigía tocar un archivo de otro bloque solo para dos
+líneas de texto; el riesgo de que diverjan es bajo porque no encierra
+lógica de negocio, solo una frase. Mismo criterio que ya aceptó el 4b al
+revocar D-4b-06 cuando unificar costaba un sexto archivo.
+
+---
+
+### Invariantes que no se rompen
+
+- **El repo no decide plata.** `hitosRepo.crear()` sigue siendo el único
+  punto de escritura; esta pantalla nunca llama `actualizar()` sobre
+  `avancePct`.
+- **Todo lo que viene de Firestore entra por `textContent`**, nunca por
+  `innerHTML`. Las dos tablas se construyen con `escapar()` en cada celda
+  de datos, igual que `hitos-tabla.js`.
+- **Lo que se pinta después de guardar se relee desde Firestore**, no se
+  arma a mano con lo que se creía haber mandado. Mismo criterio del 5b-2.
+- **Cero `collectionGroup`, cero índice compuesto.** No se agregó ninguna
+  consulta nueva: las dos pantallas reusan `listar()`/`listarEvaluaciones()`
+  del bloque 1 tal cual.
+- **El cálculo de vista previa es el mismo motor**, nunca una copia local
+  de la fórmula. Si `calcularBonoMeta()` cambiara mañana, las dos pantallas
+  heredan el cambio sin tocarles una línea.
+
+---
+
+### Verificación
+
+- `test/bloque6.mjs` — **30/30** en Node, sin red. Importa las funciones de
+  los dos controladores reales, más `esEditable` encadenado desde
+  `meta-detalle-controller.js` — confirma que esa cadena de imports no se
+  rompe en Node, no solo en el navegador.
+- Las trece suites anteriores intactas:
+  15 · 24 · 19 · 18 · 16 · 20 · 21 · 7 · 13 · 13 · 13 · 25 · 22.
+- Sintaxis verificada en los dos JS nuevos y balance de tags confirmado en
+  `meta-detalle.html` (25 `<div>` abiertos, 25 cerrados).
+- **Sin corrida del simulador**: este bloque no toca reglas.
+
+#### Checklist visual — en producción, con la cuenta de ingeniero
+
+1. Desde el detalle de una meta abierta: los enlaces "➕ Extras y créditos"
+   y "⭐ Evaluaciones" llevan `?proyecto&meta` de la meta que se estaba
+   mirando, no a una pantalla en blanco.
+2. En **Extras y créditos**: elegir "Crédito", escribir magnitud 40 y
+   HH/u 1 → la caja de impacto muestra `−40,00 HH` en estimadas antes de
+   guardar, `0,00` en ganadas.
+3. Guardar ese crédito. Vuelve a `meta-detalle.html` y el total estimado de
+   la meta bajó exactamente 40 HH. El renglón aparece con el badge
+   **crédito** y la cantidad en rojo.
+4. Desactivar esa actividad. Desaparece de la lista; el total vuelve a
+   subir 40 HH.
+5. En **Evaluaciones**: registrar ornato 80 / SO 60 con fecha de hoy → la
+   caja de impacto muestra el factor bajando de 1.00 y el bono del Maestro
+   de Obras bajando en colones, antes de guardar.
+6. Guardar. El factor de calidad en `meta-detalle.html` refleja el nuevo
+   promedio sin recargar manualmente el dato (se recalcula al volver a
+   cargar esa pantalla).
+7. Con una meta en estado `cerrada`: los dos formularios nuevos aparecen
+   apagados con el aviso de solo lectura — confirma que el hueco quedó
+   cerrado.
+8. Intentar una fecha de evaluación futura: se rechaza con el mensaje
+   correspondiente.
+
+---
+
+### Deuda
+
+Sin deuda nueva. El bloque cierra el hueco de evaluaciones en metas
+cerradas que no estaba declarado en ningún lado — se encontró y se cerró
+en el mismo bloque, no se dejó anotado para después.
+
 - **8 y 11 — sin cambios.** No son de este bloque.
 
 ---
