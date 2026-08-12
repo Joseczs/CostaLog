@@ -22,7 +22,7 @@ desactualizado es peor que no tenerlo.
 | 4c | Propuesta de avance (móvil) | ✅ hecho | 19/19 + checklist visual |
 | 5 | Resumen y proyección de bono | ✅ hecho | 18/18 + checklist visual |
 | 5b | Alcance por supervisor (supervisorIds) | ✅ hecho | 16/16 + verificación en producción |
-| 5b-2 | Pantalla de asignación de supervisores | ⬜ | — |
+| 5b-2 | Pantalla de asignación de supervisores | ✅ hecho | 20/20 + checklist visual |
 | 5c/A | Reglas tolerantes (dos valores) | ✅ hecho | desplegada |
 | 5c/B | Datos: rol supervisor → maestro | ✅ hecho | 1 usuario migrado |
 | 5c/C | Código: roles.js + auth.js | ✅ hecho | 15/15 |
@@ -1459,6 +1459,216 @@ Queda como deuda 17.
   `ingeniero` desde la consola del navegador y saltarse **todo** lo de este
   bloque. El 5b cierra el alcance entre roles legítimos; no cierra la puerta de
   entrada. **Candidata a ser el próximo bloque, antes del 6.**
+
+---
+
+## Bloque 5b-2 — pantalla de asignación de Maestros de Obra ✅
+
+Cierra la **deuda 16**, abierta desde el 5b: asignar un maestro a un
+proyecto exigía `serviceAccountKey.json` y
+`node scripts/migrar-supervisor-ids.js --asignar <proyecto> <uid> --escribir`.
+Funciona para dos o tres proyectos; no escala a una obra real.
+
+```
+public/ingeniero/asignar-supervisores.html            ← nuevo
+public/ingeniero/asignar-supervisores-controller.js   ← nuevo
+public/js/repos/usuariosRepo.js                       ← nuevo
+public/js/sidebar.js       ← EXCEPCIÓN declarada (bloque 2): una entrada de menú
+test/bloque5b2.mjs         ← nuevo, fuera del deploy y del conteo
+```
+
+**Cuatro archivos contados.** `proyectosRepo.js` **no se tocó** —ya traía
+`asignarSupervisores()` del 5b— y `firestore.rules` **tampoco**: el guardia
+es del 5b y está verificado en producción. **5b es el guardia, 5b-2 es la
+herramienta.**
+
+La excepción de `sidebar.js` es la misma que ya usaron el 4a, el 4c y el 5:
+una entrada sin lógica. Sin ella la pantalla se llega por URL escrita a
+mano, que es la deuda 6 otra vez. De paso se corrigió el comentario de
+cabecera de ese archivo, que seguía diciendo que los directorios conservan
+el nombre invertido — mentira desde el 5c/E.
+
+---
+
+### Lo que dijeron los archivos reales, y que cambió el plan
+
+**`dashboard.html` ya estaba lleno.** 143 líneas: dos tarjetas, dos
+modales, una tabla de 15 columnas con scroll, tres tabs, cuatro filtros y
+tres módulos JS. `dashboard-controller.js`, 420 líneas con seis
+responsabilidades. Eso decidió D-5b2-01 sin discusión.
+
+**Hallazgo nuevo, no anotado antes:** `ingeniero/dashboard-controller.js:78`
+e `importarExcel.js:137` crean proyectos con `addDoc` directo, **sin
+`supervisorIds`**. `proyectosRepo.crear()` sí lo pone; esos dos se saltan el
+repo (deuda 18). Con el fail-closed del 5b, **todo proyecto nacido del
+dashboard o de una importación de Excel es invisible para todos los
+maestros** hasta que alguien lo asigne. No es un agujero —falla cerrado,
+que es lo correcto— pero es la razón operativa por la que la deuda 16 picaba
+hoy. Y **no obliga a tocar esos dos archivos**: `asignarSupervisores` usa
+`updateDoc`, que crea el campo aunque no exista, así que la pantalla sana
+cada proyecto en su primer guardado.
+
+---
+
+### Las cinco decisiones, cerradas antes del código
+
+**D-5b2-01 · Pantalla propia, no una sección del dashboard.**
+La asignación no es una acción por fila del proyecto: es una pantalla con
+dos listas cruzadas. No cabe en la columna "Acciones", y una tercera tarjeta
+con su propia tabla y su propio botón de guardar en ese HTML es exactamente
+cómo `dashboard-controller.js` llegó a 420 líneas.
+
+**D-5b2-02 · La deuda 23 (promover a `ingeniero`) NO entra.**
+Comparten la *forma* de la interfaz y nada más: son dos colecciones
+(`proyectos` vs `usuarios`) y dos permisos distintos. Asignar un maestro
+reparte visibilidad; promover a ingeniero **crea otro aprobador de avance**,
+que es el contrapeso entero de D-11. Esa escritura merece su propio bloque
+con su propio caso en `scripts/probar-reglas.js` —que ya tiene el patrón—,
+no ser el segundo botón de una pantalla que hace otra cosa. **Deuda 23 sigue
+abierta, ahora con bloque asignado.**
+
+**D-5b2-03 · Nace `usuariosRepo.js`, con un solo consumidor.**
+El principio 5 no admite que una pantalla nueva consulte Firestore directo.
+Pero tres archivos ya lo hacen —`ingeniero/gestionar-empleados-controller.js:25`,
+`ingeniero/nueva-tarea-controller.js:38`, `js/importarExcel.js:92`— y
+migrarlos daría **siete** archivos. Entonces: el repo existe desde hoy, esta
+pantalla lo usa, y cada uno de los tres se pasa el día que se abra por su
+propia razón. Mismo criterio con que `formato.js` nació en el 4a sin
+reescribir a todos sus futuros clientes. **Deuda 24.**
+
+```js
+crearUsuariosRepo(db)
+listarMaestros()   // → Usuario[]  rol == 'maestro', activos, por nombre
+obtener(uid)       // → Usuario | null   sin filtrar por `activo`
+```
+
+`where('rol','==',ROL_MAESTRO)` en la consulta y `activo !== false` **en
+memoria**: es la cuenta del 5b otra vez. Lo prohibido son los índices
+compuestos y lo que los exige es la combinación de dos condiciones. Sumar
+`where('activo','==',true)` pediría índice compuesto **y** dejaría fuera
+todo documento viejo sin el campo, que es justo lo que el principio 4 existe
+para evitar.
+
+`obtener()` es el único que **no** filtra por `activo`: su razón de ser es
+mirar a alguien que puede estar desactivado.
+
+**D-5b2-04 · Multi-select con botón Guardar, con tres guardas.**
+Un proyecto arriba, casilla por maestro, un botón que junta lo marcado y
+llama `asignarSupervisores` **una sola vez**. Nunca una escritura por casilla
+tocada.
+
+- El botón se habilita solo si el conjunto **difiere** del cargado.
+  Comparación de conjuntos, no de longitudes: cambiar un maestro por otro
+  deja el mismo largo y es un cambio real. Tiene prueba propia.
+- Guarda contra carrera con token de generación, mismo patrón del 4a. Acá
+  pesa más que allá: sin ella, dos clics rápidos pintan la asignación de un
+  proyecto bajo el nombre de otro **y el botón la guarda**.
+- Después de guardar, la confirmación se **relee desde Firestore**, no desde
+  la memoria de la pantalla. Lo que se muestra tiene que ser lo que quedó
+  escrito, no lo que se creía estar escribiendo.
+
+**D-5b2-05 · La pantalla filtra `activo !== false` de entrada.**
+No es decisión nueva: es el principio 4. Cierra la **deuda 17 del lado de la
+interfaz**. El script `migrar-supervisor-ids.js` queda como está —tocarlo
+sería abrir un archivo de otro bloque sin necesidad— y la deuda 17 sigue
+abierta ahí, ahora sin consecuencias para el uso diario.
+
+---
+
+### Los uid huérfanos: la decisión que apareció escribiendo
+
+`supervisorIds` puede contener el uid de alguien que ya no es Maestro de
+Obras: promovido, desactivado o borrado. Tres salidas, dos malas:
+
+- **Construir el arreglo solo con las casillas visibles** lo desasigna sin
+  que nadie lo haya decidido. `asignarSupervisores` manda el arreglo
+  completo: lo que no está marcado, no se guarda.
+- **Conservarlo por debajo** lo vuelve invisible — un permiso vivo que
+  ninguna pantalla muestra es exactamente lo que este bloque viene a
+  terminar.
+- **Pintarlo como una fila más, marcada, con la advertencia al lado.**
+
+Se hace la tercera. Con nombre si el documento existe, con el uid crudo si
+no, y con un aviso distinto en cada caso. El ingeniero lo ve, y si lo
+desmarca es porque lo decidió. Mismo criterio que el 4b con un avance
+inválido: **nunca se corrige en silencio.** Cuatro pruebas.
+
+---
+
+### Invariantes que no se rompen
+
+- **Una sola escritura por guardado, con el arreglo completo.** Nunca
+  `arrayUnion`, nunca una por casilla.
+- **Sin cambios no se puede guardar.** Una escritura vacía es una escritura
+  que nadie puede explicar después.
+- **Vaciar la lista se puede, pero se pregunta.** Dejar un proyecto sin
+  nadie asignado es válido y a veces correcto; también lo vuelve invisible
+  para todo el campo. Se advierte una vez, no se impide.
+- **El rol sale de `roles.js`.** `usuariosRepo` importa `ROL_MAESTRO`; no hay
+  un solo literal de rol en los tres archivos nuevos.
+- **Todo lo que viene de Firestore entra por `textContent`**, nunca por
+  `innerHTML`. Acá la tabla se construye con `createElement`, así que no hay
+  ni un `innerHTML` con datos.
+- **El manejador se ata al crear cada casilla**, no con un
+  `querySelectorAll` posterior: no hay forma de pintar un control sin su
+  manejador. Lección del 5c/C-bis.
+- **La URL es la memoria**, no `localStorage`:
+  `asignar-supervisores.html?proyecto=<id>` con `history.replaceState`. Un id
+  que no esté en la lista se ignora en silencio. Con un solo proyecto activo
+  se abre solo.
+- **Un cambio sin guardar avisa al salir** (`beforeunload`).
+
+---
+
+### Verificación
+
+- `test/bloque5b2.mjs` — **20/20** en Node, sin red. Importa las funciones
+  del controlador real, no las reimplementa: la mitad de navegador solo
+  arranca si existe `#tabla-maestros`, que en Node no existe.
+- Las doce suites anteriores intactas:
+  15 · 24 · 19 · 18 · 16 · 21 · 7 · 13 · 13 · 13 · 25 · 22.
+- **Sin corrida del simulador**: este bloque no toca reglas. El guardia es
+  del 5b y ya está verificado en producción.
+
+#### Checklist visual — en producción, con la cuenta de ingeniero
+
+1. El menú **Gestión** muestra "Asignar maestros" y la pantalla abre.
+2. Con un proyecto elegido: la tabla lista los maestros y el botón está
+   **apagado**.
+3. Marcar dos, guardar. En la consola de Firestore, `supervisorIds` tiene
+   **exactamente** esos dos uid.
+4. Desmarcar uno, guardar. Queda **uno solo** — confirma arreglo completo y
+   no `arrayUnion`.
+5. Un proyecto creado desde el Dashboard (sin el campo) aparece con "0 de N
+   asignados" y al guardar queda con el arreglo escrito.
+6. Guardar sin cambiar nada: imposible, el botón no se habilita.
+7. Con la cuenta de maestro: ve el proyecto recién asignado y **no** ve
+   los otros.
+
+---
+
+### Deuda
+
+- **16 — CERRADA.** Asignar un Maestro de Obras ya no necesita
+  `serviceAccountKey.json` ni línea de comandos.
+- **17 — abierta solo del lado del script.** `--listar` de
+  `migrar-supervisor-ids.js` sigue sin distinguir proyectos desactivados. La
+  pantalla sí los filtra, así que ya no tiene consecuencias diarias.
+- **18 — sigue abierta, y ahora se sabe qué cuesta.** Cuatro archivos leen
+  `proyectos` sin pasar por el repo; dos de ellos —`dashboard-controller.js`
+  e `importarExcel.js`— **crean proyectos sin `supervisorIds`**. Cada
+  proyecto nuevo nace invisible hasta que se abra esta pantalla. No rompe
+  nada y falla cerrado, pero es un paso manual permanente que una línea en
+  cada archivo eliminaría.
+- **23 — sigue abierta, con bloque asignado.** Promover a `ingeniero` no
+  tiene pantalla: es consola o script. Bloque corto propio, con su caso en
+  `probar-reglas.js`.
+- **24 — nueva.** Tres archivos consultan `usuarios` sin pasar por
+  `usuariosRepo`, que ya existe:
+  `ingeniero/gestionar-empleados-controller.js:25`,
+  `ingeniero/nueva-tarea-controller.js:38`, `js/importarExcel.js:92`.
+  Cada uno se pasa el día que se abra por su propia razón.
+- **8 y 11 — sin cambios.** No son de este bloque.
 
 ---
 
