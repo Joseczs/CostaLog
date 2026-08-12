@@ -127,6 +127,26 @@
         Esta meta está <strong>cerrada o pagada</strong>: la tabla es de solo lectura y
         calcula con sus reglas congeladas. Reabrirla es una acción explícita y auditada.
       </div>
+
+      <!-- Bloque 6 — EXCEPCIÓN declarada, solo estos dos enlaces. Los ids
+           quedan sin querystring hasta que el script de abajo los complete
+           con `?proyecto&meta` de la URL actual: es la misma meta que esta
+           pantalla ya está mirando. No toca meta-detalle-controller.js. -->
+      <div class="tira-datos" style="margin-top:14px;">
+        <a id="enlace-actividades" href="/ingeniero/actividades-fuera-lista.html" class="link-accion link-normal">➕ Extras y créditos</a>
+        <a id="enlace-evaluaciones" href="/ingeniero/evaluaciones.html" class="link-accion link-normal">⭐ Evaluaciones</a>
+      </div>
+      <script>
+        (function () {
+          var params = new URLSearchParams(window.location.search);
+          var proyecto = params.get('proyecto');
+          var meta = params.get('meta');
+          if (!proyecto || !meta) return;
+          var qs = '?proyecto=' + encodeURIComponent(proyecto) + '&meta=' + encodeURIComponent(meta);
+          document.getElementById('enlace-actividades').href = '/ingeniero/actividades-fuera-lista.html' + qs;
+          document.getElementById('enlace-evaluaciones').href = '/ingeniero/evaluaciones.html' + qs;
+        })();
+      </script>
     </div>
 
     <!-- ── Resumen, con el factor de calidad AL LADO del monto ────────── -->

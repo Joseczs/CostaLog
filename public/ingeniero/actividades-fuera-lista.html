@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Extras y créditos – COSTACON</title>
+<link rel="stylesheet" href="/css/styles.css">
+<style>
+  /* Estilos locales del bloque 6. No se toca css/styles.css — deuda 8. */
+
+  .tabla-actividades { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .tabla-actividades th {
+    background: var(--azul-claro); color: var(--azul-oscuro); text-align: left;
+    padding: 8px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px;
+    border-bottom: 2px solid var(--gris-borde); white-space: nowrap;
+  }
+  .tabla-actividades td { padding: 7px 8px; border-bottom: 1px solid #eef2f5; }
+  .tabla-actividades .num { text-align: right; white-space: nowrap; }
+  .tabla-actividades .col-codigo { font-family: monospace; color: var(--azul-oscuro); }
+  .fila-credito .num { color: var(--rojo-error); }
+
+  .badge-extra   { background: #E6F1FB; color: #0C447C; }
+  .badge-credito { background: #FDECEC; color: #A32D2D; }
+
+  .resumen-actividades { font-size: 12px; color: #8794a1; margin-bottom: 10px; }
+
+  .form-actividad { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; margin-top: 4px; }
+  .form-actividad .full { grid-column: 1 / -1; }
+  .form-actividad label { font-size: 12px; color: var(--gris-texto); margin-bottom: 2px; display: block; }
+
+  .caja-impacto {
+    grid-column: 1 / -1; background: #F4F8FB; border: 1px solid #D6E4EF;
+    border-radius: 6px; padding: 10px 12px; font-size: 12.5px; margin-top: 4px;
+  }
+  .caja-impacto .fila-impacto { display: flex; gap: 18px; flex-wrap: wrap; }
+  .caja-impacto .etiqueta { color: #8794a1; font-size: 10.5px; text-transform: uppercase; }
+  .caja-impacto .valor { font-weight: 700; color: var(--azul-oscuro); }
+  .impacto-bono-linea { margin-top: 6px; color: #0C447C; }
+
+  .aviso-lectura {
+    background: #F4F8FB; border: 1px solid #D6E4EF; padding: 10px 12px;
+    border-radius: 6px; font-size: 13px; margin-top: 12px; display: none;
+  }
+  .info-msg { color: #1B7F5A; font-size: 12.5px; }
+  .nota-pie { font-size: 11px; color: #8794a1; margin-top: 14px; line-height: 1.6; }
+
+  @media (max-width: 640px) {
+    .form-actividad { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+  <header class="app-header">
+    <h1>COSTACON – Extras y créditos</h1>
+    <div class="user-info">
+      <span id="nombre-usuario"></span>
+      <button class="btn-logout" id="btn-logout">Salir</button>
+    </div>
+  </header>
+
+  <div class="app-container">
+
+    <div id="avisos"></div>
+
+    <div class="card">
+      <a id="enlace-volver" href="/ingeniero/meta-detalle.html" class="hint-text">← Volver al detalle de la meta</a>
+      <h2 id="titulo-meta">Meta</h2>
+      <p class="hint-text" id="nombre-proyecto">—</p>
+    </div>
+
+    <!-- ── Formulario ──────────────────────────────────────────────────── -->
+    <div class="card">
+      <h2>Registrar actividad fuera de lista</h2>
+      <form id="form-actividad" class="form-actividad">
+        <div>
+          <label for="sel-tipo">Tipo</label>
+          <select id="sel-tipo" required>
+            <option value="">Elegí…</option>
+            <option value="extra">Extra — se hizo trabajo que no estaba en la lista</option>
+            <option value="credito">Crédito — un renglón de la lista no se va a hacer</option>
+          </select>
+        </div>
+        <div>
+          <label for="campo-unidad">Unidad</label>
+          <input type="text" id="campo-unidad" placeholder="m², ml, un…" required>
+        </div>
+        <div class="full">
+          <label for="campo-descripcion">Descripción</label>
+          <input type="text" id="campo-descripcion" placeholder="Qué actividad es" required>
+        </div>
+        <div>
+          <label for="campo-magnitud">Cantidad</label>
+          <input type="number" id="campo-magnitud" min="0.01" step="0.01" placeholder="Siempre positiva" required>
+        </div>
+        <div>
+          <label for="campo-hh-unidad">HH por unidad</label>
+          <input type="number" id="campo-hh-unidad" min="0.01" step="0.01" required>
+        </div>
+
+        <div class="caja-impacto full">
+          <div class="fila-impacto">
+            <div><span class="etiqueta">HH estimadas, si se guarda</span><br>
+              <span class="valor" id="impacto-estimadas">—</span></div>
+            <div><span class="etiqueta">HH ganadas, si se guarda</span><br>
+              <span class="valor" id="impacto-ganadas">—</span></div>
+          </div>
+          <div class="impacto-bono-linea" id="impacto-bono"></div>
+        </div>
+
+        <div class="full" style="display:flex; gap:10px; align-items:center;">
+          <button type="submit" class="btn-accion" id="btn-guardar-actividad">Guardar</button>
+          <span class="error-msg" id="error-form" style="margin:0;"></span>
+        </div>
+      </form>
+
+      <div class="aviso-lectura" id="aviso-solo-lectura">
+        Esta meta está <strong>cerrada o pagada</strong>: no se pueden registrar
+        nuevas actividades. Sus reglas están congeladas y sus montos, liquidados.
+      </div>
+    </div>
+
+    <!-- ── Lista ───────────────────────────────────────────────────────── -->
+    <div class="card">
+      <h2>Extras y créditos de esta meta</h2>
+      <p class="resumen-actividades" id="resumen-actividades">—</p>
+
+      <table class="tabla-actividades" id="tabla-actividades">
+        <thead>
+          <tr>
+            <th>Código</th><th>Tipo</th><th>Descripción</th><th>Unidad</th>
+            <th class="num">Cantidad</th><th class="num">HH/u</th>
+            <th class="num">HH est.</th><th class="num">% avance</th>
+            <th class="num">HH ganadas</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="cuerpo-actividades"></tbody>
+      </table>
+      <div class="empty-state" id="vacio-actividades" style="display:none;">
+        Sin extras ni créditos registrados todavía.
+      </div>
+
+      <p class="nota-pie">
+        El % de avance de cada actividad se edita en el <strong>detalle de la
+        meta</strong>, igual que cualquier hito de la lista. Un crédito baja el
+        total estimado apenas se guarda, aunque su avance siga en 0 % — es la
+        cantidad negativa la que resta, no el avance. Corregir un error de
+        tipeo es desactivar y volver a crear, nunca editar.
+      </p>
+    </div>
+
+  </div>
+
+  <script type="module" src="/ingeniero/actividades-fuera-lista-controller.js"></script>
+</body>
+</html>

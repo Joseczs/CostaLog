@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Evaluaciones – COSTACON</title>
+<link rel="stylesheet" href="/css/styles.css">
+<style>
+  /* Estilos locales del bloque 6. No se toca css/styles.css — deuda 8. */
+
+  .tabla-evaluaciones { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .tabla-evaluaciones th {
+    background: var(--azul-claro); color: var(--azul-oscuro); text-align: left;
+    padding: 8px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px;
+    border-bottom: 2px solid var(--gris-borde); white-space: nowrap;
+  }
+  .tabla-evaluaciones td { padding: 7px 8px; border-bottom: 1px solid #eef2f5; }
+  .tabla-evaluaciones .num { text-align: right; white-space: nowrap; }
+
+  .caja-factor {
+    border-left: 3px solid var(--azul-claro); padding-left: 12px; margin-left: 4px;
+  }
+  .caja-factor .valor { font-size: 22px; font-weight: 700; color: var(--azul-oscuro); }
+  .procedencia { font-size: 11.5px; color: #8794a1; margin-top: 3px; }
+
+  .form-evaluacion { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px 16px; margin-top: 4px; }
+  .form-evaluacion .full { grid-column: 1 / -1; }
+  .form-evaluacion label { font-size: 12px; color: var(--gris-texto); margin-bottom: 2px; display: block; }
+
+  .caja-impacto {
+    grid-column: 1 / -1; background: #F4F8FB; border: 1px solid #D6E4EF;
+    border-radius: 6px; padding: 10px 12px; font-size: 12.5px;
+  }
+  .caja-impacto .fila-impacto { display: flex; gap: 18px; flex-wrap: wrap; }
+  .caja-impacto .etiqueta { color: #8794a1; font-size: 10.5px; text-transform: uppercase; }
+  .caja-impacto .valor { font-weight: 700; color: var(--azul-oscuro); }
+  .impacto-bono-linea { margin-top: 6px; color: #0C447C; }
+
+  .aviso-lectura {
+    background: #F4F8FB; border: 1px solid #D6E4EF; padding: 10px 12px;
+    border-radius: 6px; font-size: 13px; margin-top: 12px; display: none;
+  }
+  .info-msg { color: #1B7F5A; font-size: 12.5px; }
+  .nota-pie { font-size: 11px; color: #8794a1; margin-top: 14px; line-height: 1.6; }
+
+  @media (max-width: 640px) {
+    .form-evaluacion { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+  <header class="app-header">
+    <h1>COSTACON – Evaluaciones bisemanales</h1>
+    <div class="user-info">
+      <span id="nombre-usuario"></span>
+      <button class="btn-logout" id="btn-logout">Salir</button>
+    </div>
+  </header>
+
+  <div class="app-container">
+
+    <div id="avisos"></div>
+
+    <div class="card">
+      <a id="enlace-volver" href="/ingeniero/meta-detalle.html" class="hint-text">← Volver al detalle de la meta</a>
+      <h2 id="titulo-meta">Meta</h2>
+      <p class="hint-text" id="nombre-proyecto">—</p>
+    </div>
+
+    <!-- ── Factor de calidad actual ────────────────────────────────────── -->
+    <div class="card">
+      <h2>Factor de calidad</h2>
+      <div class="caja-factor">
+        <span class="valor" id="factor-actual">—</span>
+        <div class="procedencia" id="factor-nota">—</div>
+      </div>
+      <p class="nota-pie">
+        El factor modula el <strong>reparto</strong> del bono, no el monto
+        bruto — es el freno del sistema, y por eso vive junto al monto en el
+        resumen de la meta, no en otra pestaña. La frecuencia de captura es
+        <strong>bisemanal</strong> (cada dos semanas), no semanal.
+      </p>
+    </div>
+
+    <!-- ── Formulario ──────────────────────────────────────────────────── -->
+    <div class="card">
+      <h2>Registrar evaluación</h2>
+      <form id="form-evaluacion" class="form-evaluacion">
+        <div>
+          <label for="campo-fecha">Fecha</label>
+          <input type="date" id="campo-fecha" required>
+        </div>
+        <div>
+          <label for="campo-ornato">Ornato (0–100)</label>
+          <input type="number" id="campo-ornato" min="0" max="100" step="0.01" required>
+        </div>
+        <div>
+          <label for="campo-so">SO (0–100)</label>
+          <input type="number" id="campo-so" min="0" max="100" step="0.01" required>
+        </div>
+        <div class="full">
+          <label for="campo-notas">Notas (opcional)</label>
+          <input type="text" id="campo-notas" placeholder="Observaciones de la visita">
+        </div>
+
+        <div class="caja-impacto full">
+          <div class="fila-impacto">
+            <div><span class="etiqueta">Factor, si se guarda</span><br>
+              <span class="valor" id="impacto-factor">—</span></div>
+          </div>
+          <div class="impacto-bono-linea" id="impacto-bono"></div>
+        </div>
+
+        <div class="full" style="display:flex; gap:10px; align-items:center;">
+          <button type="submit" class="btn-accion" id="btn-guardar-evaluacion">Guardar</button>
+          <span class="error-msg" id="error-form" style="margin:0;"></span>
+        </div>
+      </form>
+
+      <div class="aviso-lectura" id="aviso-solo-lectura">
+        Esta meta está <strong>cerrada o pagada</strong>: no se pueden registrar
+        nuevas evaluaciones. Sus reglas están congeladas y sus montos, liquidados.
+      </div>
+    </div>
+
+    <!-- ── Lista ───────────────────────────────────────────────────────── -->
+    <div class="card">
+      <h2>Evaluaciones de esta meta</h2>
+      <table class="tabla-evaluaciones" id="tabla-evaluaciones">
+        <thead>
+          <tr>
+            <th>Fecha</th><th class="num">Ornato</th><th class="num">SO</th>
+            <th class="num">Promedio</th><th>Notas</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="cuerpo-evaluaciones"></tbody>
+      </table>
+      <div class="empty-state" id="vacio-evaluaciones" style="display:none;">
+        Sin evaluaciones registradas. El factor se calcula al 100 %, sin castigo.
+      </div>
+
+      <p class="nota-pie">
+        Corregir una evaluación mal digitada es desactivar y volver a
+        crearla — no se edita en línea, para que quede claro en el histórico
+        cuál calificación se usó en cada momento.
+      </p>
+    </div>
+
+  </div>
+
+  <script type="module" src="/ingeniero/evaluaciones-controller.js"></script>
+</body>
+</html>
