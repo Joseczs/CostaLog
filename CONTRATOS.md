@@ -32,6 +32,7 @@ desactualizado es peor que no tenerlo.
 | 5c/E | Directorios y rutas | ✅ hecho | 13/13 + checklist en producción |
 | 5d | Registro no asigna rol (deuda 1) | ✅ hecho | 25/25 + 8/8 en producción |
 | 6 | Extras, créditos y evaluaciones | ✅ hecho | 30/30 + checklist visual |
+| D-18 | Deuda 18 — cómo nace un proyecto | ✅ hecho | 33/33 + checklist visual en producción |
 | 7 | Tareas BP + migración de pesos | ⬜ | — |
 | 8 | Pagos y exportación Excel | ⬜ | — |
 
@@ -1500,7 +1501,8 @@ responsabilidades. Eso decidió D-5b2-01 sin discusión.
 **Hallazgo nuevo, no anotado antes:** `ingeniero/dashboard-controller.js:78`
 e `importarExcel.js:137` crean proyectos con `addDoc` directo, **sin
 `supervisorIds`**. `proyectosRepo.crear()` sí lo pone; esos dos se saltan el
-repo (deuda 18). Con el fail-closed del 5b, **todo proyecto nacido del
+repo (deuda 18 — **cerrada más abajo**, ver «Deuda 18 — cómo nace un
+proyecto»). Con el fail-closed del 5b, **todo proyecto nacido del
 dashboard o de una importación de Excel es invisible para todos los
 maestros** hasta que alguien lo asigne. No es un agujero —falla cerrado,
 que es lo correcto— pero es la razón operativa por la que la deuda 16 picaba
@@ -1922,7 +1924,8 @@ Mapa completo de los que leen `proyectos` sin pasar por el repo:
 | `supervisor/nueva-tarea-controller.js` | ingeniero | pasa |
 | `js/exportarExcel.js` · `js/importarExcel.js` | ingeniero (solo desde el dashboard) | pasa |
 
-Los del ingeniero no rompen hoy. Quedan como **deuda 18**.
+Los del ingeniero no rompen hoy. Quedaron como **deuda 18 — cerrada**, ver
+«Deuda 18 — cómo nace un proyecto» más abajo.
 
 ### Fase B ⬜ — `scripts/migrar-rol-maestro.js`
 
@@ -2654,3 +2657,140 @@ si el catch-all fuera primero, se comería los dos redirects específicos.
   Ingeniero Residente, `/maestro/` es del Maestro de Obras.
 - **21 — CERRADA.** `roles.js` ya no es más tolerante que las reglas: el
   alias que sobrevivía solo en código se retiró.
+
+---
+
+## Deuda 18 — cómo nace un proyecto ✅
+
+### El diagnóstico estaba corto
+
+La deuda decía: «`dashboard-controller.js` e `importarExcel.js` crean proyectos
+con `addDoc` directo, sin `supervisorIds`. Falla cerrado, no rompe nada, pero es
+un paso manual permanente».
+
+Lo primero es cierto. Lo segundo, escribir `supervisorIds: []` y declararla
+pagada, **no habría arreglado nada**: para Firestore, un `array-contains` contra
+un campo **ausente** y contra un arreglo **vacío** devuelven exactamente lo
+mismo —nada—, así que `listar({ soloDe })` seguiría sin devolverle el proyecto a
+nadie. El campo vacío es correcto y no sirve de nada por sí solo.
+
+Lo que duele es el paso manual: **todo proyecto nacido fuera de la pantalla del
+5b-2 nace invisible para todos los Maestros de Obra**, y alguien tiene que
+acordarse de ir a asignarlo. Falla en silencio —el proyecto existe, se ve en el
+dashboard del ingeniero, y el maestro simplemente no lo tiene—, que es la peor
+forma de fallar: nadie recibe un error, se recibe un "no aparece".
+
+Por eso el bloque hace dos cosas: cierra la ruta de escritura (D-18-01) **y**
+resuelve la asignación en el momento de crear (D-18-02, D-18-03).
+
+### Decisiones cerradas antes del código
+
+- **D-18-01 — Una sola ruta de creación: `proyectosRepo.crear()`.** Se retira
+  `addDoc(collection(db, 'proyectos'), …)` de los dos archivos. `crear()` ya
+  ponía `supervisorIds: []` antes del spread desde el bloque 1 — el repo estaba
+  bien, lo que faltaba era que alguien lo usara. `activo` y `createdAt` los pone
+  el repo y **solo** el repo; `nuevoProyecto.js` no los duplica.
+
+- **D-18-02 — El modal "Nuevo Proyecto" asigna maestros al crear.** Lista de
+  casillas, opcional, alimentada por `usuariosRepo.listarMaestros()` (5b-2). Es
+  lo que de verdad elimina el paso manual: el proyecto nace visible.
+  Si la consulta de maestros falla, **el alta no se bloquea**: se explica y se
+  crea igual. Crear el proyecto es lo urgente; asignarlo se puede hacer después.
+  Cambiar una molestia por un tapón habría sido peor que la deuda.
+
+- **D-18-03 — Los proyectos creados desde Excel heredan los jefes de sus propias
+  filas.** La columna "Jefe de Cuadrilla" ya trae, fila por fila, el nombre de
+  quien va a ejecutar la tarea, y `validarFilas()` ya rechaza toda fila cuyo jefe
+  no exista entre los maestros activos. En el momento en que la fila se declara
+  válida, el uid del Maestro que **tiene** que ver esa tarea ya está resuelto.
+  Pedirle al ingeniero que después entre a otra pantalla a repetir esa misma
+  información sería pedirle que copie a mano un dato que el archivo ya trajo. Un
+  proyecto con tareas de tres jefes hereda los tres: las tres personas necesitan
+  verlo para trabajar.
+
+- **D-18-04 — Nacer sin maestros es legal, pero nunca silencioso.** Un proyecto
+  en licitación, o uno sin cuadrilla todavía, puede nacer sin nadie. Lo que no
+  puede es nacer sin que se diga. Aviso ámbar —no rojo: es un pendiente, no un
+  error— nombrando el proyecto y diciendo a dónde ir. En el dashboard el modal se
+  queda **abierto** cuando hay aviso: cerrarlo de golpe pintaría el texto en una
+  tarjeta que ya nadie está mirando.
+
+- **D-18-05 — Editar un proyecto NO toca `supervisorIds`.** Después de nacer, la
+  única ruta de escritura de las asignaciones es la pantalla del 5b-2. La sección
+  de maestros se **oculta** en modo edición y el `updateDoc` no lleva el campo.
+  Si apareciera, guardar un cambio de ubicación con las casillas vacías
+  desasignaría a todo el mundo sin que nadie lo hubiera pedido — exactamente el
+  error que `asignarSupervisores()` evita mandando el arreglo completo. Lo mismo
+  del lado del Excel: una fila dirigida a un proyecto **existente** no aporta
+  uid; un archivo importado no puede reasignar permisos.
+
+- **D-18-06 — La lógica común vive en `public/js/nuevoProyecto.js`, archivo
+  nuevo.** Las dos rutas de creación están en archivos con listeners de DOM en
+  el nivel superior, o sea imposibles de importar desde Node. Un tercer archivo
+  puro es lo que permite que `test/deuda18.mjs` ejerza la lógica sin navegador, y
+  evita la copia doble. Es el patrón mitad-pura/mitad-navegador de los bloques 3,
+  4b, 5 y 5b-2, con la diferencia de que acá la mitad pura la comparten dos
+  consumidores.
+
+- **D-18-07 — Esto NO paga la deuda 24.** `dashboard-controller.js` estrena
+  `usuariosRepo.listarMaestros()`, pero la deuda 24 es sobre migrar **tres
+  consultas que ya existen**, y ninguna de las tres está en este bloque. Un
+  consumidor nuevo no es una migración.
+
+### Archivos (5)
+
+| Archivo | Qué |
+|---|---|
+| `public/js/nuevoProyecto.js` | **nuevo.** Mitad pura compartida |
+| `public/ingeniero/dashboard-controller.js` | crea vía repo; casillas de maestros; aviso |
+| `public/ingeniero/dashboard.html` | sección de maestros y `#aviso-proyecto` en el modal |
+| `public/js/importarExcel.js` | crea vía repo; herencia D-18-03; aviso |
+| `test/deuda18.mjs` | **nuevo.** 33 casos |
+
+No tocó `firestore.rules`: `allow create, update: if esIngeniero()` ya cubre
+`proyectos` desde el bloque 2, y `supervisorIds` es un campo más dentro de esa
+misma escritura. **No hubo `firebase deploy` en este bloque.**
+
+### La prueba tiene dos mitades, a propósito
+
+Las 28 pruebas de lógica pueden pasar enteras mientras alguien deja un `addDoc`
+olvidado al lado. Por eso hay 5 pruebas más que **escanean el texto fuente** de
+los dos archivos: que no reaparezca `addDoc(collection(db, 'proyectos'), …)`, que
+los dos importen `proyectosRepo`, que `nuevoProyecto.js` no importe nada. Es el
+mismo mecanismo con que `bloque5ce.mjs` impide que vuelva a aparecer un
+`ROL_SUPERVISOR`: la deuda no se puede reabrir sin que una prueba se ponga roja.
+
+### Verificación
+
+- `test/deuda18.mjs` — **33/33** en Node, sin red.
+- Las catorce suites anteriores intactas: 15 · 24 · 19 · 18 · 16 · 20 · 21 · 7 ·
+  13 · 13 · 13 · 25 · 30 · 22.
+- Checklist visual firmado en producción: alta con maestro marcado (el maestro
+  lo ve sin pasar por Asignar maestros), alta sin marcar nadie (aviso ámbar,
+  modal abierto, proyecto sí se crea), editar no desasigna, importación de
+  Excel hereda el jefe de cuadrilla de la fila, dos jefes distintos en el mismo
+  proyecto nuevo lo ven los dos.
+
+### Deudas
+
+**Cerrada:** la 18.
+
+**Suma a la 8** (tablas y estilos sin unificar): `dashboard.html` estrena bloque
+`<style>` local con cuatro clases nuevas (`.lista-maestros-alta`,
+`.fila-maestro-alta`, `.ayuda-modal`, `.aviso-ambar`). Mismo criterio y mismo
+comentario que `asignar-supervisores.html` en el 5b-2: `css/styles.css` es
+archivo de otro bloque, y meterlo acá habría hecho seis. La deuda 8 queda con un
+archivo más en la cuenta.
+
+**Sin cambio:** las deudas 23, 24, 17 y 11.
+
+### Nota para el bloque 7
+
+`supervisorIdsHeredadosDelExcel()` deriva permisos de datos de un archivo subido.
+Hoy es seguro porque `validarFilas()` ya resolvió cada `jefeCuadrillaId` contra
+`usuarios` con `rol == ROL_MAESTRO`: no se confía en un nombre del Excel, se
+confía en el uid que la validación devolvió. **Cualquier cambio futuro que
+afloje esa validación afloja también quién ve qué proyecto**, y eso no se va a
+ver en la pantalla de tareas. Es el mismo tipo de hueco que el bloque 6 encontró
+con las evaluaciones en metas cerradas: un dato que alimenta una decisión sin
+pasar por la pregunta que la protege.
