@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asignar Maestros de Obra – COSTACON</title>
+<link rel="stylesheet" href="/css/styles.css">
+<style>
+  /* Estilos locales del bloque 5b-2. No se toca css/styles.css, que es
+     archivo de otro bloque y está en la deuda 8 esperando su unificación
+     junto con metas.html y meta-detalle.html. */
+
+  .tabla-maestros { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .tabla-maestros th {
+    background: var(--azul-claro); color: var(--azul-oscuro);
+    text-align: left; padding: 9px 10px; font-size: 11px;
+    text-transform: uppercase; letter-spacing: .4px;
+    border-bottom: 2px solid var(--gris-borde); white-space: nowrap;
+  }
+  .tabla-maestros td {
+    padding: 11px 10px; border-bottom: 1px solid #eef2f5;
+    vertical-align: top; color: var(--gris-texto);
+  }
+  .tabla-maestros tr:last-child td { border-bottom: none; }
+  .tabla-maestros .col-check { width: 44px; text-align: center; }
+  /* Objetivo de toque grande: esta pantalla es de escritorio, pero una
+     casilla de 13 px es un error de clic esperando pasar. */
+  .tabla-maestros input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+  .tabla-maestros .detalle { color: #8794a1; font-size: 12px; }
+
+  .fila-huerfana { background: #FFF8E8; }
+  .aviso-fila {
+    font-size: 11px; color: #8a5a00; margin-top: 3px; line-height: 1.4;
+  }
+
+  .resumen-asignacion { font-size: 12px; color: #8794a1; margin-bottom: 10px; }
+
+  .barra-guardar {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 16px; flex-wrap: wrap;
+  }
+  .barra-guardar button[disabled] { opacity: .45; cursor: not-allowed; }
+
+  .aviso { font-size: 12px; }
+  .aviso-ok { color: #1B7F3B; }
+  .aviso-error { color: var(--rojo-error); }
+
+  .nota-pie {
+    font-size: 11px; color: #8794a1; margin-top: 14px;
+    border-top: 1px dashed #eef2f5; padding-top: 10px; line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+  <header class="app-header">
+    <h1>COSTACON – Asignar Maestros de Obra</h1>
+    <div class="user-info">
+      <span id="nombre-usuario"></span>
+      <button class="btn-logout" id="btn-logout">Salir</button>
+    </div>
+  </header>
+
+  <div class="app-container">
+
+    <!-- ── Selector de proyecto ───────────────────────────────────────── -->
+    <div class="card">
+      <h2>Proyecto</h2>
+      <select id="selector-proyecto" style="width:100%; max-width:480px;">
+        <option value="">Elegí un proyecto…</option>
+      </select>
+      <p class="error-msg" id="error-carga"></p>
+    </div>
+
+    <!-- ── Tabla de maestros ──────────────────────────────────────────── -->
+    <div class="card" id="seccion-asignacion" style="display:none;">
+      <h2>Maestros de Obra</h2>
+      <p class="resumen-asignacion" id="resumen-asignacion"></p>
+
+      <table class="tabla-maestros" id="tabla-maestros">
+        <thead>
+          <tr>
+            <th class="col-check">Asignado</th>
+            <th>Nombre</th>
+            <th>Contacto</th>
+          </tr>
+        </thead>
+        <tbody id="cuerpo-maestros"></tbody>
+      </table>
+
+      <div class="barra-guardar">
+        <button class="btn-accion" id="btn-guardar" disabled>Guardar asignación</button>
+        <span class="aviso" id="aviso-guardado"></span>
+      </div>
+
+      <p class="nota-pie">
+        La lista se guarda completa: lo que quede marcado es exactamente lo que
+        va a quedar escrito en el proyecto, ni más ni menos. Un Maestro de Obras
+        solo ve los proyectos donde está asignado — sus metas, sus tareas y su
+        bono. Un proyecto sin nadie asignado no lo ve nadie del campo.
+        El botón se habilita únicamente cuando la selección cambió.
+      </p>
+    </div>
+
+  </div>
+
+  <script type="module" src="/ingeniero/asignar-supervisores-controller.js"></script>
+</body>
+</html>

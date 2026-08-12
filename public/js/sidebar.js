@@ -8,9 +8,10 @@
 import { ROL_INGENIERO, ROL_MAESTRO } from './roles.js';
 
 // Estructura de navegación por rol. Agrupada por categoría.
-// ⚠️ Los directorios /ingeniero/ y /maestro/ conservan el nombre viejo:
-// /ingeniero/* pertenece al INGENIERO, /maestro/* al SUPERVISOR (Maestro
-// de Obras). Deuda declarada en CONTRATOS.md.
+// Desde el bloque 5c/E los directorios dicen lo que son: /ingeniero/* es
+// del Ingeniero Residente y /maestro/* del Maestro de Obras. La deuda 3
+// quedó cerrada ahí; este comentario documentaba la inversión y se
+// corrige acá porque el archivo ya estaba abierto.
 const NAV_POR_ROL = {
   [ROL_INGENIERO]: [
     {
@@ -30,6 +31,9 @@ const NAV_POR_ROL = {
         { label: 'Resumen de bono', icono: '💰', href: '/ingeniero/bono-resumen.html' },
         { label: 'Tareas', icono: '📋', href: '/ingeniero/dashboard.html#seccion-tareas' },
         { label: 'Colaboradores', icono: '👷', href: '/ingeniero/gestionar-empleados.html' },
+        // Bloque 5b-2 — deuda 16 pagada. Asignar Maestros de Obra a un
+        // proyecto era `serviceAccountKey.json` y línea de comandos.
+        { label: 'Asignar maestros', icono: '🔗', href: '/ingeniero/asignar-supervisores.html' },
         { label: 'Configuración', icono: '⚙️', href: '/ingeniero/config-proyecto.html' }
       ]
     },
